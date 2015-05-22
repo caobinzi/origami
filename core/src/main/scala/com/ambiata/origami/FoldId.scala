@@ -20,7 +20,7 @@ object FoldId {
     fromMonoidMap(_ => 1)
 
   /** @return fold to count the number of unique elements */
-  def countUnique[T]: Fold[T, Int] = new FoldM[T, Id, Int] {
+  def countUnique[T]: Fold[T, Int] = new Fold[T, Int] {
     type S = scala.collection.mutable.HashSet[T]
     def start = new scala.collection.mutable.HashSet[T]
     def fold = (s: S, t: T) => { s.add(t); s }
@@ -28,7 +28,7 @@ object FoldId {
   }
 
   /** @return return false if the list is empty or if all elements are false, use a \/- state to indicate early success */
-  def any[T](f: T => Boolean) = new FoldM[T, Id, Boolean] {
+  def any[T](f: T => Boolean) = new Fold[T, Boolean] {
     type S = Boolean \/ Boolean
     def start = -\/(false)
     def fold = (s: S, t: T) => if (f(t)) \/-(true) else s
@@ -36,7 +36,7 @@ object FoldId {
   }
 
   /** @return return true if the list is empty or if all elements are true, use a \/- state to indicate early failure */
-  def all[T](f: T => Boolean) = new FoldM[T, Id, Boolean] {
+  def all[T](f: T => Boolean) = new Fold[T, Boolean] {
     type S = Boolean \/ Boolean
     def start = -\/(true)
     def fold = (s: S, t: T) => if (!f(t)) \/-(false) else s
@@ -48,7 +48,7 @@ object FoldId {
     fromFoldLeft[T, Option[T]](None)((u, t) => Some(t))
 
   /** @return the latest n elements */
-  def latest[T](n: Int) = new FoldM[T, Id, List[T]] {
+  def latest[T](n: Int) = new Fold[T, List[T]] {
     type S = scala.collection.mutable.ListBuffer[T]
     def start = new scala.collection.mutable.ListBuffer[T]
     def fold = (s: S, t: T) => { s.append(t); if (s.size > n) s.remove(0); s }

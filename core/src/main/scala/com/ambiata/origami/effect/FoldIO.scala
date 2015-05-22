@@ -13,7 +13,7 @@ object FoldIO {
 
   // unfortunately this type alias is necessary to have a proper type inference for
   // applicative operators like <*
-  type FoldIO[A, B] = FoldM[A, IO, B]
+  type FoldIO[A, B] = FoldM[IO, A, B]
 
   type Sink[A] = FoldIO[A, Unit]
 
@@ -48,7 +48,7 @@ object FoldIO {
   def sinkIO[T, R](init: IO[R])(fd: (R, T) => Unit)(close: R => IO[Unit]): Sink[T] =
     sink[T, R, IO](init)(fd)(close)
 
-  def sink[T, R, M[_]](init: M[R])(fd: (R, T) => Unit)(close: R => M[Unit]): SinkM[T, M] = new FoldM[T, M, Unit] {
+  def sink[T, R, M[_]](init: M[R])(fd: (R, T) => Unit)(close: R => M[Unit]): SinkM[M, T] = new FoldM[M, T, Unit] {
     type S = R
     def start = init
     def fold = (s: S, t: T) => { fd(s, t); s }

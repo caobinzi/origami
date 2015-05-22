@@ -24,7 +24,7 @@ class FoldMBenchmark extends SimpleScalaBenchmark {
   	writer.close
   }
 
-  val sum: FoldM[Int, Id, Int] = 
+  val sum: Fold[Int, Int] = 
     fromMonoid[Int]
 
   def lines[A](reps: Int)(f: Iterator[Int] => A): A = {

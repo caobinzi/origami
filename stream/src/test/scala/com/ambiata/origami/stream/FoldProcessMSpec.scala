@@ -19,7 +19,7 @@ class FoldProcessMSpec extends Properties("Process Task folds") {
 
   property("fromSink - creates a fold from a Sink") = observeSink
 
-  type F[A, B] = FoldM[A, Task, B]
+  type F[A, B] = FoldM[Task, A, B]
 
   def observeSink = forAll { list: NonEmptyList[Line] =>
 

@@ -11,8 +11,8 @@ import Stepper._
 
 object FoldProcessM {
   type ProcessTask[T] = Process[Task, T]
-  type SinkTask[T] = SinkM[T, Task]
-  type FoldTask[T, U] = FoldM[T, Task, U]
+  type SinkTask[T] = SinkM[Task, T]
+  type FoldTask[T, U] = FoldM[Task, T, U]
 
   implicit val IdTaskNaturalTransformation: Id ~> Task = new (Id ~> Task) {
     def apply[A](i: Id[A]): Task[A] = Task.now(i)
@@ -26,7 +26,7 @@ object FoldProcessM {
     def apply[A](t: Id[A]): Process[Task, A] = Process.eval(Task.now(t))
   }
 
-  def fromSink[T](sink: Sink[Task, T]) = new FoldM[T, Task, Unit] {
+  def fromSink[T](sink: Sink[Task, T]) = new FoldM[Task, T, Unit] {
     type S = Stepper[Task, T => Task[Unit]]
     def start = Task.now(step(sink))
 

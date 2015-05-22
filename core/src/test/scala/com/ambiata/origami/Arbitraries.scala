@@ -17,7 +17,7 @@ import scalaz.{Equal, NonEmptyList}
 
 object Arbitraries {
 
-  type F[A, B] = FoldM[A, Id, B]
+  type F[A, B] = FoldM[Id, A, B]
   type FInt[A] = F[Int, A]
 
   implicit def FoldIntStringArbitrary: Arbitrary[F[Int, String]] = Arbitrary {

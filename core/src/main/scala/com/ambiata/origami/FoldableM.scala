@@ -12,27 +12,27 @@ import scalaz.std.list._
  * A structure delivering elements of type A (variable type, like a List) and which 
  * can be folded over
  */
-trait FoldableM[F[_], M[_]]  { self =>
-  def foldM[A, B](fa: F[A])(fd: FoldM[A, M, B]): M[B]
+trait FoldableM[M[_], F[_]]  { self =>
+  def foldM[A, B](fa: F[A])(fd: FoldM[M, A, B]): M[B]
 
-  def foldMBreak[A, B](fa: F[A])(fd: FoldM[A, M, B] { type S = B \/ B }): M[B]
+  def foldMBreak[A, B](fa: F[A])(fd: FoldM[M, A, B] { type S = B \/ B }): M[B]
 
-  def into[G[_]](implicit nat: G ~> F): FoldableM[G, M] = new FoldableM[G, M] {
-    def foldM[A, B](fa: G[A])(fd: FoldM[A, M, B]): M[B] =
+  def into[G[_]](implicit nat: G ~> F): FoldableM[M, G] = new FoldableM[M, G] {
+    def foldM[A, B](fa: G[A])(fd: FoldM[M, A, B]): M[B] =
      self.foldM(nat(fa))(fd)
 
-    def foldMBreak[A, B](fa: G[A])(fd: FoldM[A, M, B] { type S = B \/ B }): M[B] =
+    def foldMBreak[A, B](fa: G[A])(fd: FoldM[M, A, B] { type S = B \/ B }): M[B] =
       self.foldMBreak(nat(fa))(fd)
   }
 }
 
 object FoldableM {
 
-  def apply[F[_], M[_]](implicit fm: FoldableM[F, M]): FoldableM[F, M] =
-    implicitly[FoldableM[F, M]]
+  def apply[M[_], F[_]](implicit fm: FoldableM[M, F]): FoldableM[M, F] =
+    implicitly[FoldableM[M, F]]
 
-  implicit def IteratorIsFoldableM[M[_] : Bind]: FoldableM[Iterator, M] =  new FoldableM[Iterator, M] {
-    def foldM[A, B](iterator: Iterator[A])(fd: FoldM[A, M, B]): M[B] =
+  implicit def IteratorIsFoldableM[M[_] : Bind]: FoldableM[M, Iterator] =  new FoldableM[M, Iterator] {
+    def foldM[A, B](iterator: Iterator[A])(fd: FoldM[M, A, B]): M[B] =
       fd.start.flatMap { st =>
         var state = st
         while (iterator.hasNext)
@@ -40,7 +40,7 @@ object FoldableM {
         fd.end(state)
       }
 
-    def foldMBreak[A, B](iterator: Iterator[A])(fd: FoldM[A, M, B] { type S = B \/ B }): M[B] = {
+    def foldMBreak[A, B](iterator: Iterator[A])(fd: FoldM[M, A, B] { type S = B \/ B }): M[B] = {
       @tailrec
       def foldState(it: Iterator[A], state: fd.S): fd.S =
         if (it.hasNext)
@@ -55,11 +55,11 @@ object FoldableM {
 
   }
 
-  implicit def FoldableIsFoldableM[F[_] : Foldable, M[_] : Bind]: FoldableM[F, M] = new FoldableM[F, M] {
-    def foldM[A, B](fa: F[A])(fd: FoldM[A, M, B]): M[B] =
+  implicit def FoldableIsFoldableM[M[_] : Bind, F[_] : Foldable]: FoldableM[M, F] = new FoldableM[M, F] {
+    def foldM[A, B](fa: F[A])(fd: FoldM[M, A, B]): M[B] =
       fd.start.flatMap(st => fd.end(fa.foldLeft(st)(fd.fold)))
 
-    def foldMBreak[A, B](fa: F[A])(fd: FoldM[A, M, B] { type S = B \/ B }): M[B] = {
+    def foldMBreak[A, B](fa: F[A])(fd: FoldM[M, A, B] { type S = B \/ B }): M[B] = {
       @tailrec
       def foldState(stream: EphemeralStream[A], state: fd.S): fd.S =
         stream match {

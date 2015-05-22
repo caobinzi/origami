@@ -49,7 +49,7 @@ object FoldIdSpec extends Properties("FoldId") {
  // see https://www.cs.ox.ac.uk/jeremy.gibbons/publications/iterator.pdf: "the essence of the Iterator pattern"
  property("line/word/char count") = lineWordCharCount
 
-  type F[A, B] = FoldM[A, Id, B]
+  type F[A, B] = Fold[A, B]
   type FInt[A] = F[Int, A]
 
   def countFold = forAll { list: List[Int] =>
@@ -152,7 +152,7 @@ object FoldIdSpec extends Properties("FoldId") {
   def lineWordCharCount = forAll { list1: List[String] =>
     val list = List("")
     val countChars: Fold[Char, Int] = count[Char]
-    val countWords: Fold[Char, Int] = new FoldM[Char, Id, Int] {
+    val countWords: Fold[Char, Int] = new Fold[Char, Int] {
       type S = (Boolean, Int)
       def start = (false, 0)
       def fold = (s: S, t: Char) => {

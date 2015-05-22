@@ -13,8 +13,8 @@ import scalaz.stream.Process._
  */
 object FoldableProcessM {
 
-  implicit def ProcessFoldableM[M[_]](implicit F: Monad[M], C: Catchable[M]): FoldableM[Process[M, ?], M] = new FoldableM[Process[M, ?], M] {
-    def foldM[A, B](fa: Process[M, A])(fd: FoldM[A, M, B]): M[B] = {
+  implicit def ProcessFoldableM[M[_]](implicit F: Monad[M], C: Catchable[M]): FoldableM[M, Process[M, ?]] = new FoldableM[M, Process[M, ?]] {
+    def foldM[A, B](fa: Process[M, A])(fd: FoldM[M, A, B]): M[B] = {
       def go(state: fd.S): Process1[A, fd.S] =
         Process.receive1 { a: A =>
           val newState = fd.fold(state, a)
@@ -26,7 +26,7 @@ object FoldableProcessM {
       }
     }
 
-    def foldMBreak[A, B](fa: Process[M, A])(fd: FoldM[A, M, B] { type S = B \/ B }): M[B] = {
+    def foldMBreak[A, B](fa: Process[M, A])(fd: FoldM[M, A, B] { type S = B \/ B }): M[B] = {
       def go(state: fd.S): Process1[A, fd.S] =
         Process.receive1 { a: A =>
           val newState = fd.fold(state, a)
