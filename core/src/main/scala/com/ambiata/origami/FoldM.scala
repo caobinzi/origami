@@ -167,7 +167,7 @@ trait FoldM[M[_], T, U] { self =>
   }
   
   /** create a fold that will run this fold repeatedly on input elements and collect all results */
-  def nest[F[_], R](f: R => F[T])(implicit df: FoldableM[M, F], monoid: Monoid[U], monad: Monad[M]) = new FoldM[M, R, U] {
+  def nest[F[_], R](f: R => F[T])(implicit df: FoldableM[M, F[T], T], monoid: Monoid[U], monad: Monad[M]) = new FoldM[M, R, U] {
     type S = M[U]
     def start = monad.point(monad.point(monoid.zero)) 
     def fold = (s: S, r: R) =>
@@ -179,21 +179,15 @@ trait FoldM[M[_], T, U] { self =>
   /**
    * run a FoldM with a FoldableM instance (like a List, an Iterator, a scalaz Process)
    */
-   def run[F[_]](ft: F[T])(implicit foldableM: FoldableM[M, F]): M[U] =
+   def run[F](ft: F)(implicit foldableM: FoldableM[M, F, T]): M[U] =
      foldableM.foldM(ft)(this)
 
   /**
    * run a FoldM with a FoldableM instance (like a List, an Iterator, a scalaz Process)
    * and break early if possible
    */
-  def runBreak[F[_]](ft: F[T])(implicit foldableM: FoldableM[M, F], ev: S <:< (U \/ U)): M[U] =
+  def runBreak[F](ft: F)(implicit foldableM: FoldableM[M, F, T], ev: S <:< (U \/ U)): M[U] =
     foldableM.foldMBreak(ft)(self.asInstanceOf[FoldM[M, T, U] { type S = U \/ U }])
-
-  /**
-   * run a FoldM with a FoldableMS instance (like an InputStream which is specialized on producing Array[Byte])
-   */
-   def runS[F](f: F)(implicit foldableMS: FoldableMS[M, F, T]): M[U] =
-     foldableMS.foldM(f)(this)
 
   /**
    * run over one element

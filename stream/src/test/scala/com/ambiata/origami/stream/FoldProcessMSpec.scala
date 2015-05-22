@@ -43,7 +43,7 @@ class FoldProcessMSpec extends Properties("Process Task folds") {
       val totalAndOutput: F[Line, Int] =
         (sum.into[Task] <<* sink).contramap[Line](_.value)
 
-      (IO(totalAndOutput.run[ProcessTask](listProcess).run) |@| IO({Thread.sleep(100); Source.fromFile(testFile)(io.Codec("UTF-8")).getLines})) { (total, lines) =>
+      (IO(totalAndOutput.run[ProcessTask[Line]](listProcess).run) |@| IO({Thread.sleep(100); Source.fromFile(testFile)(io.Codec("UTF-8")).getLines})) { (total, lines) =>
         val readLines: List[String] = lines.toList
         val values: List[String] = list.list.map(_.value)
         val sums = values.scanLeft(0)(_ + _.size)

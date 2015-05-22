@@ -4,7 +4,6 @@ package origami
 import FoldM._
 import FoldId._
 import FoldableM._
-import FoldableMS._
 import Arbitraries._
 import scalaz.{NonEmptyList, State, Id, \/}, Id._
 import scalaz.effect.IO
@@ -177,7 +176,7 @@ object FoldIdSpec extends Properties("FoldId") {
   def sha1Fold = forAll { sha1Test: Sha1Test =>
     // make as if the string was coming from an input stream
     val is: InputStream = new ByteArrayInputStream(sha1Test.value.getBytes("UTF-8"))
-     bytesSha1.into[IO].runS(is).unsafePerformIO =? sha1Test.result
+     bytesSha1.into[IO].run(is).unsafePerformIO =? sha1Test.result
   }
   
   def stateFold = forAll { list: List[Int] =>

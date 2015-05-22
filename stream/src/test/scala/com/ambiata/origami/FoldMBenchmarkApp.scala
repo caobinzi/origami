@@ -3,10 +3,10 @@ package origami
 
 import com.google.caliper._
 import FoldM._
-import FoldableM._
-import stream.FoldableProcessM._
+import FoldableM.IteratorIsFoldableM
 import stream.FoldProcessM._
-import scalaz._, Scalaz._
+import scalaz._, Id._
+import scalaz.std.anyVal._
 import scalaz.concurrent._
 import scalaz.stream._
 import org.scalacheck._
@@ -40,17 +40,19 @@ class FoldMBenchmark extends SimpleScalaBenchmark {
   }
 
   def timeSourceIteratorFoldM(reps: Int): Unit =  {
-    lines(reps)(sum.run[Iterator])
+    lines(reps)(sum.run[Iterator[Int]])
   }
 
   def timeSourceIteratorTaskFoldM(reps: Int): Unit =  {
-    lines(reps)(sum.into[Task].run[Iterator])
+    lines(reps)(sum.into[Task].run[Iterator[Int]])
   }
 
   def timeProcessFoldM(reps: Int): Unit =  {
+    import stream.FoldableProcessM._
+    
     val lines = io.linesR(TEST_FILE)
     repeat(reps)(
-      sum.into[Task].run[Process[Task, ?]](lines.map(_.toInt)).run
+      sum.into[Task].run(lines.map(_.toInt)).run
     )
   }
 

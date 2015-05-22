@@ -10,7 +10,6 @@ import org.scalacheck._, Gen._, Arbitrary._
 import FoldIO._
 import FoldId._
 import FoldM._
-import FoldableMS._
 import FoldableM._
 import scala.io.Codec
 import scalaz._
@@ -63,7 +62,7 @@ object FoldIOSpec extends Properties("FoldIO") {
         mapped     =  lines.map((_:String).count(_.isDigit))                 // map lines
         count      <- countAndSha1.run(mapped)                               // count, output and sha1
         sha1Lines  <- IO(io.Source.fromFile(sha1Out)(Codec.UTF8).getLines)   // read the sha1
-        recomputed <- bytesSha1.into[IO].runS(new FileInputStream(output))   // recompute the sha1
+        recomputed <- bytesSha1.into[IO].run(new FileInputStream(output))   // recompute the sha1
       } yield
         (count =? list.size) :| "count is ok" &&
         (sha1Lines.toList(0) =? recomputed) :| "sha1 is ok"
