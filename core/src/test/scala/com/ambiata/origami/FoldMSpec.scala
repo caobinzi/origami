@@ -1,5 +1,5 @@
 package com.ambiata
-package foldm
+package origami
 
 import org.scalacheck.Arbitrary._
 import org.scalacheck.Prop._

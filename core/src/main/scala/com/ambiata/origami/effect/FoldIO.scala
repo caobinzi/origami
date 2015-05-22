@@ -1,5 +1,5 @@
 package com.ambiata
-package foldm
+package origami
 package effect
 
 import java.io._

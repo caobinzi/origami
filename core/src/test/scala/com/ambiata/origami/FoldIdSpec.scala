@@ -1,5 +1,5 @@
 package com.ambiata
-package foldm
+package origami
 
 import FoldM._
 import FoldId._

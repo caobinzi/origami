@@ -1,5 +1,5 @@
 package com.ambiata
-package foldm
+package origami
 
 import com.google.caliper._
 import FoldM._

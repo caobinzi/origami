@@ -1,5 +1,5 @@
 package com.ambiata
-package foldm
+package origami
 package stream
 
 import scalaz.{\/, \/-, -\/, Monad, Catchable}

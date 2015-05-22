@@ -1,5 +1,5 @@
 package com.ambiata
-package foldm
+package origami
 
 import scalaz.{Apply, Functor, Profunctor, Monoid, Compose, Monad, Category, MonadPlus, ~>, Order, StateT}
 import scalaz.effect.IO

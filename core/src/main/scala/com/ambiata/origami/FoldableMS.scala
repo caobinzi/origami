@@ -1,5 +1,5 @@
 package com.ambiata
-package foldm
+package origami
 
 import scala.io.BufferedSource
 import scalaz.{\/, \/-, -\/, Bind, ~>}

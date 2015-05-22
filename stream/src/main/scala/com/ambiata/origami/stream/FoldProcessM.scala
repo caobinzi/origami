@@ -1,13 +1,13 @@
 package com.ambiata
-package foldm
+package origami
 package stream
 
 import FoldM._
 
 import scalaz.stream._
-import scalaz.stream.async.mutable.Signal
 import scalaz.{Id, ~>}, Id._
 import scalaz.concurrent.Task
+import Stepper._
 
 object FoldProcessM {
   type ProcessTask[T] = Process[Task, T]
@@ -27,9 +27,14 @@ object FoldProcessM {
   }
 
   def fromSink[T](sink: Sink[Task, T]) = new FoldM[T, Task, Unit] {
-    type S = Signal[T => Task[Unit]]
-    def start = Task.now(async.toSignal(sink))
-    def fold = (s: S, t: T) => { s.get.run.apply(t).run; s }
+    type S = Stepper[Task, T => Task[Unit]]
+    def start = Task.now(step(sink))
+
+    def fold = (s: S, t: T) => {
+      s.next.run.flatMap(_.getOrElse(Nil).head(t)).run
+      s
+    }
+
     def end(s: S) = s.close
   }
 
