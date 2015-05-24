@@ -7,6 +7,7 @@ import scalaz.Id._
 import scalaz._
 import scalaz.std.anyVal._
 import scalaz.syntax.monad._
+import scalaz.syntax.either._
 import scalaz.syntax.foldable._
 import scalaz.std.list._
 import java.security.MessageDigest
@@ -151,6 +152,26 @@ trait FoldM[M[_], T, U] { self =>
   def <<<*[V](sink: SinkM[M, (S, T)])(implicit ap: Apply[M]) =
     observeNextState(sink)
 
+  /**
+   * collect all the successive states in a list
+   */
+  def writeState(implicit f: Functor[M]): FoldM[M, T, (U, List[S])] = new FoldM[M, T, (U, List[S])] {
+    type S = (self.S, scala.collection.mutable.ListBuffer[self.S])
+    def start = f.map(self.start)(s => (s, new scala.collection.mutable.ListBuffer[self.S]))
+    def fold = (s: S, t: T) => (self.fold(s._1, t), { s._2.append(s._1); s._2 })
+    def end(s: S) = f.map(self.end(s._1))(u => (u, s._2.toList))
+  }
+
+  /**
+   * collect all the successive "next" states in a list
+   */
+  def writeNextState(implicit f: Functor[M]): FoldM[M, T, (U, List[S])] = new FoldM[M, T, (U, List[S])] {
+    type S = (self.S, scala.collection.mutable.ListBuffer[self.S])
+    def start = f.map(self.start)(s => (s, { val l = new scala.collection.mutable.ListBuffer[self.S]; l.append(s); l }))
+    def fold = (s: S, t: T) => { val newS = self.fold(s._1, t); (newS, { s._2.append(newS); s._2 }) }
+    def end(s: S) = f.map(self.end(s._1))(u => (u, s._2.toList))
+  }
+
   /** pipe the output of this fold into another fold */
   def compose[V](f2: FoldM[M, U, V])(implicit m: Monad[M]) = new FoldM[M, T, V] {
     type S = M[(self.S, f2.S)]
@@ -177,6 +198,33 @@ trait FoldM[M[_], T, U] { self =>
   }
 
   /**
+   * create a Fold which will indicate that the iteration can be stopped when
+   * a condition is reached
+   */
+  def breakWhen(predicate: S => Boolean)(implicit f: Functor[M]): FoldM[M, T, U] { type S = self.S \/ self.S } = new  FoldM[M, T, U] {
+    type S = self.S \/ self.S
+
+    def start =
+      f.map(self.start) { s =>
+        if (predicate(s)) \/-(s)
+        else              -\/(s)
+      }
+
+    def fold = (s: S, t: T) => {
+      s match {
+        case -\/(s1) =>
+          val newState = self.fold(s1, t)
+          if (predicate(newState)) \/-(newState)
+          else                     -\/(newState)
+
+        case \/-(s1) => \/-(self.fold(s1, t))
+      }
+    }
+
+    def end(s: S) = s.fold(self.end _, self.end _)
+  }
+
+  /**
    * run a FoldM with a FoldableM instance (like a List, an Iterator, a scalaz Process)
    */
    def run[F](ft: F)(implicit foldableM: FoldableM[M, F, T]): M[U] =
@@ -186,8 +234,8 @@ trait FoldM[M[_], T, U] { self =>
    * run a FoldM with a FoldableM instance (like a List, an Iterator, a scalaz Process)
    * and break early if possible
    */
-  def runBreak[F](ft: F)(implicit foldableM: FoldableM[M, F, T], ev: S <:< (U \/ U)): M[U] =
-    foldableM.foldMBreak(ft)(self.asInstanceOf[FoldM[M, T, U] { type S = U \/ U }])
+  def runBreak[F, V](ft: F)(implicit foldableM: FoldableM[M, F, T], ev: S <:< (V \/ V)): M[U] =
+    foldableM.foldMBreak(ft)(self.asInstanceOf[FoldM[M, T, U] { type S = V \/ V }])
 
   /**
    * run over one element

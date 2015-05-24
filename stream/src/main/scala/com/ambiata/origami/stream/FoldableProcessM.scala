@@ -26,13 +26,17 @@ object FoldableProcessM {
       }
     }
 
-    def foldMBreak[B](fa: Process[M, A])(fd: FoldM[M, A, B] { type S = B \/ B }): M[B] = {
+    def foldMBreak[B, S1](fa: Process[M, A])(fd: FoldM[M, A, B] { type S = S1 \/ S1 }): M[B] = {
       def go(state: fd.S): Process1[A, fd.S] =
         Process.receive1 { a: A =>
-          val newState = fd.fold(state, a)
-          newState match {
-            case \/-(s) => emit(newState)
-            case -\/(s) => emit(newState) fby go(newState)
+          state match {
+            case \/-(_) => emit(state)
+            case -\/(_) => 
+              val newState = fd.fold(state, a)
+              newState match {
+                case \/-(s) => emit(newState)
+                case -\/(s) => emit(newState) fby go(newState)
+              }
           }
         }
 

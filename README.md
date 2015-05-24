@@ -12,26 +12,28 @@ When processing data streams it is often necessary to cumulate different "effect
 
  - accumulate some state (for example counting the number of elements, or computing a hash value)
  - output results to a file or a database
- - display the end value on the console (or all the successive values)
+ - display the end value on the console
  
 Moreover we want to be able to:
 
  - develop these features in a composable way. It should be possible to describe and test the counting of elements (or other piece of statistics like mean/variance) independently from its output to a file
  
- - do all sorts of computations and side-effects in **one** traversal (not have to read a file twice to output the number of lines and the md5)
+ - do all sorts of computations and side-effects in **one** traversal (not have to read a file twice to output the number of lines and the MD5 hash)
  
 ### `FoldM` and `FoldableM`
  
-The ***origami*** library offers 2 abstractions to do this: `FoldM` and `FoldableM`. Basically a `FoldM[M, T, U]` instance has:
+The ***origami*** library offers 2 abstractions to do this: `FoldM` and `FoldableM`. 
 
- - a `type S` representing the accumulated state
+Basically a `FoldM[M, T, U]` instance has:
+
+ - a internal `type S` representing the accumulated state
  - a `start` method returning an initial `M[S]` element
  - a `fold` method `(s: S, t: T) => S` describing how to "fold" each element with the previous state
  - a `end(s: S)` method returning `M[U]` and finalizing the computation
  
-Then a `FoldableM[M, F]` instance simply knows how to take a `FoldM[M, T, U]` instance to get the final `M[U]` result. This is all a bit abstract so let's have a look at a very simple example:
+Then a `FoldableM[M, F, T]` instance knows how stream elements of type `T` from a stream `F` through a `FoldM[M, T, U]` which will compute a final value `M[U]`. This is all very abstract so let's have a look at a simple example:
 
-    import com.ambiata.foldm._, FoldableM._    
+    import com.ambiata.origami._, FoldableM._    
 
     def count[T] = new FoldM[Id, T, Int] {
       type S = Int
@@ -61,9 +63,10 @@ Besides those 2 traits the rest of the library offers:
   
 ### Combinators
 
-The most useful combinator is `zip` (or `<*>`). It allows to "couple" 2 folds, run them both at once and get a pair of the results:
+The most useful combinator is `zip` (or `<*>`). It lets you "couple" 2 folds, run them both at once and get a pair of the results:
 
-    // already available in com.ambiata.origami.FoldId.scala
+    // already available in com.ambiata.origami.FoldId
+    // sum all elements using the Numeric[N].plus method
     def plus[N : Numeric] = new Fold[N, N] {
       val num = implicitly[Numeric[N]]
       type S = N
@@ -87,11 +90,11 @@ Here is a short-list of other useful combinators:
  
  - `<*` is like `<*>` (or `zip`) but ignores the end value of the second fold. This is useful when the other fold is only wanted for its side-effects (like writing to a file)
  
- - `map` maps the end result `M[U]` to another value `M[V]`
+ - `map(f: U => V)` maps the end result `M[U]` to another value `M[V]`
  
  - `contramap` "adapts" the input elements of type `T` with a function `R => T` in order to build a `FoldM[M, R, U]` now accepting elements of type `R`  
  
- - `mapFlatten` uses a function `U => M[V]` to modify the output `M[U]` of the fold into a `M[V]` value (when `M : Bind`)
+ - `mapFlatten(f: U => M[V])` modifies the output `M[U]` of the fold into a `M[V]` value (when `M : Bind`)
  
  - `compose` feeds in all intermediary results of a given fold to another. For example a `scanl` fold for sums can be built by composing the `plus` fold (summing all elements) and the `list` fold (listing all elements). The resulting fold will return a list of all intermediate sums
  
@@ -117,7 +120,7 @@ The `com.ambiata.origami.FoldId` object provides a few useful folds:
 
 It is sometimes useful to stop folding a structure when the state of a `FoldM` has reached a given point. A typical example is the `all` fold. When using `all` we know that we can stop checking elements as soon as one of them returns `false`. 
 
-To accomodate this scenario there is a `foldMBreak` method on `FoldableM` and a corresponding `runBreak` method on `FoldM` which works when the state `S` is of the form `U \/ U` where a value of type `-\/(U)` signals that the folding can terminate:
+To accomodate this scenario there is a `foldMBreak` method on `FoldableM` and a corresponding `runBreak` method on `FoldM` which works when the state `S` is of the form `U \/ U` where a value of type `\/-(U)` signals that the folding can terminate:
 
     import scalaz._, Scalaz._ // to get a Foldable instance for List
 
@@ -133,9 +136,8 @@ To accomodate this scenario there is a `foldMBreak` method on `FoldableM` and a 
 
 Time to create some side effects! For example, folds can be used over a `java.lang.InputStream`, to read a file and compute a `SHA1` hash :
 
-    import FoldIO._
-    import FoldId._
-    import FoldableM._
+    import com.ambiata.origami._, FoldId._, FoldableM._,
+    import com.ambiata.origami.effect._, FoldIO._
     import java.io._
     
     val fileInputStream = new FileInputStream(new File("file.txt"))       
@@ -143,8 +145,56 @@ Time to create some side effects! For example, folds can be used over a `java.la
     val sha1: IO[String] = 
       bytesSha1.into[IO].run(fileInputStream) 
     
-Let's break this code down. `bytesSha1` is a `Fold[Bytes, String]` which computes a `SHA1` when run through a stream of `Bytes`. However, since we are going to read a file we want this "folding" to happen inside the `IO` monad so we use `into` to transform `bytesSha1: Fold[Bytes, String]` into `FoldM[IO, Bytes, String]`. 
+Let's break this code down. `bytesSha1` is a `Fold[Bytes, String]` which computes a `SHA1` when run through a stream of `Bytes`. However, since we are going to read a file we want this "folding" to happen inside the `IO` monad so we use `into` to transform `bytesSha1: FoldM[Id, Bytes, String]` into `FoldM[IO, Bytes, String]`. 
 
-Then we can run this fold over an input stream because there is, in the `FoldableM` object and instance of `FoldableM` for `InputStreams` seen as producing `Bytes` elements.
+Then we can run this fold over an input stream because there is, in the `FoldableM` object, an instance of `FoldableM` for `InputStreams` (seen as streams producing `Bytes` elements).
 
+### Source
+
+Another common scenario is to read file lines with `scala.io.Source.fromFile(file).getLines` which returns an `Iterator[String]`. But there are different issues in using an `Iterator`.
+
+#### State folding
+
+Keeping track of state is not composable. Let's say I want to do something *and also* count the number of lines in the file. If I use vars my code gets scattered:
+    
+    val source = scala.io.Source.fromFile("file.txt")
+
+    // initialisation logic
+    var count = 0 
+    
+    source.getLines.foreach { line =>
+       // do something
+       
+       // folding logic
+       count += 1
+    }
+    
+The situation doesn't improve much by using `foldLeft` (but still better than variables):
+    
+    // the initial value is still separated from the "folding" method
+    source.getLines.foldLeft(0) { (count, line) =>
+       // do something
+       
+       // folding logic
+       count += 1
+    }
   
+And this gets worse if I need to keep track of more state (to check intermediary headers for example) or if I need to "finalize" the end result (to compute a hash). On the other hand a `Fold` is very composable:
+
+    // before
+    doSomething.run(source.getLines)
+    
+    // after
+    (doSomething <*> count).run(source.getLines)
+    
+This way of doing also facilitates testing a lot because it becomes very easy to test folds in isolation from each other. You don't even need an `Iterator` to test `count` a `List` will do:
+
+    count.run(List(1, 2, 3)) == List(1, 2, 3).foldLeft(0)((n, _) => n + 1)
+
+#### Breaking out    
+
+Another issue with using an `Iterator` (or a `scalaz.Traversable` for that matter) is that there is no easy way to stop the iteration / traversal when necessary (people thinking "I could use an `Exception`", please don't!).
+
+The ***origami*** solution for this feels a bit ad-hoc but at least provides something better than exceptions. Say you expect a file that is only 10 lines long and there's no use counting lines if that is not the case. You can use the `breakWhen` operator to define when to stop:
+
+    count.breakWhen(n => n >= 10).runBreak((1 to 100).toList)

@@ -5,13 +5,15 @@ import org.scalacheck.Arbitrary._
 import org.scalacheck.Prop._
 import org.scalacheck._
 import FoldM._
+import FoldableM._
 import FoldId._
 import Arbitraries._
-import scalaz.{Apply, Cobind, Compose, Id, Reducer, Monoid}, Id._
+import scalaz.{Apply, Cobind, Compose, Id, Reducer, Monoid, \/-, -\/}, Id._
 import scalaz.std.list._
 import scalaz.std.anyVal._
 import scalaz.syntax.monad._
 import scalaz.syntax.traverse._
+import com.ambiata.disorder.NaturalIntSmall
 
 object FoldMSpec extends Properties("FoldM") {
 
@@ -28,6 +30,8 @@ object FoldMSpec extends Properties("FoldM") {
   property("from fold left") = fromFoldLeftProp
   property("from Monoid map") = fromMonoidMapProp
   property("from Reducer") = fromReducerProp
+
+  property("stop iteration early") = breakProp
 
   def foldable = forAll { (list: List[Int], fold: F[Int, String]) =>
     fold.run(list) == runFoldOnList(list, fold)
@@ -85,6 +89,18 @@ object FoldMSpec extends Properties("FoldM") {
       fromReducer(Reducer.unitReducer[String, Int](_.size))
 
     fold.run(list) =? list.foldLeft(0)(_ + _.size)
+  }
+
+  def breakProp = forAllNoShrink { (list: List[Int], maxValue: NaturalIntSmall) =>
+    val max = maxValue.value
+    
+    val breakableCount = count[Int].breakWhen(n => n >= max)
+    implicit val v: FoldableM[Id, List[Int], Int] = FoldableIsFoldableM[Id, List, Int]
+
+    val result = breakableCount.runBreak(list)
+
+    (list.size <= max && result == list.size) :| ("max not reached: "+((result, list, max))) ||
+    (list.size > max  && result == max)       :| ("max reached: "+((result, list, max)))
   }
 
   /**

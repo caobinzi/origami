@@ -20,7 +20,10 @@ object Arbitraries {
   type F[A, B] = FoldM[Id, A, B]
   type FInt[A] = F[Int, A]
 
-  implicit def FoldIntStringArbitrary: Arbitrary[F[Int, String]] = Arbitrary {
+  implicit def FoldIntStringArbitrary: Arbitrary[F[Int, String]] = 
+    Arbitrary(FoldIntStringArbitraryWithState.arbitrary.map(t => t))
+
+  implicit def FoldIntStringArbitraryWithState: Arbitrary[F[Int, String] { type S = Int }] = Arbitrary {
     for {
       init <- Gen.choose(0, 10)
       fd   <- Gen.oneOf((s: Int, i: Int) => s + i, (s: Int, i: Int) => s * i)
@@ -36,6 +39,22 @@ object Arbitraries {
         val foldres = this.run((1 to 10).toList)
         "int fold with init "+ init + " and fold result "+foldres
       }
+    }
+  }
+
+  implicit def FoldBytesStringArbitraryWithState: Arbitrary[F[Bytes, String] { type S = Int }] = Arbitrary {
+    for {
+      init <- arbitrary[String]
+      fd   <- Gen.oneOf((s: Int, bs: Bytes) => s + bs._2, (s: Int, bs: Bytes) => s * bs._2)
+      last <- Gen.oneOf((s: Int) => s.toString, (s: Int) => (s*2).toString)
+    } yield new F[Bytes, String] {
+      type S = Int
+
+      def start       = init.getBytes("UTF-8").length
+      def fold        = fd
+      def end(s: Int) = last(s)
+
+      override def toString = "bytes fold"
     }
   }
 
@@ -177,6 +196,7 @@ object Arbitraries {
     val uuid = UUID.randomUUID
     val fileName = "target/test-foldmspec/"+prefix+uuid.toString
     val tmpFile = new File(fileName)
+    if (!tmpFile.getParentFile.exists) tmpFile.getParentFile.mkdirs
     if (tmpFile.exists) tmpFile.delete
     tmpFile
   }
