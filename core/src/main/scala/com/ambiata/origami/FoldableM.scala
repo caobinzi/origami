@@ -2,9 +2,9 @@ package com.ambiata
 package origami
 
 import scala.annotation.tailrec
-import scalaz.{EphemeralStream, Bind, ~>, Foldable, \/, \/-, -\/}
+import scalaz.{EphemeralStream, Bind, ~>, Foldable, \/, \/-, -\/, Monad}
 import EphemeralStream._
-import scalaz.syntax.bind._
+import scalaz.syntax.monad._
 import scalaz.syntax.foldable._
 import scalaz.std.list._
 import java.io.InputStream
@@ -89,18 +89,18 @@ object FoldableM {
     }
   }
 
-  implicit def BufferedSourceIsFoldableMS[M[_] : Bind, S <: BufferedSource]: FoldableM[M, S, String] = new FoldableM[M, S, String] {
+  implicit def BufferedSourceIsFoldableMS[M[_] : Monad, S <: BufferedSource]: FoldableM[M, S, String] = new FoldableM[M, S, String] {
     def foldM[B](s: S)(fd: FoldM[M, String, B]): M[B] =
-      IteratorIsFoldableM[M, String].foldM(s.getLines)(fd)
+      IteratorIsFoldableM[M, String].foldM(s.getLines)(fd)  <* Monad[M].point(s.close)
 
     def foldMBreak[B, S1](s: S)(fd: FoldM[M, String, B] {type S = S1 \/ S1 }): M[B] =
-      IteratorIsFoldableM[M, String].foldMBreak(s.getLines)(fd)
+      IteratorIsFoldableM[M, String].foldMBreak(s.getLines)(fd) <* Monad[M].point(s.close)
   }
 
-  implicit def i[M[_] : Bind, IS <: InputStream]: FoldableM[M, IS, Bytes] =
+  implicit def inputStreamAsFoldableM[M[_] : Monad, IS <: InputStream]: FoldableM[M, IS, Bytes] =
     inputStreamAsFoldableMS(bufferSize = 4096)
     
-  def inputStreamAsFoldableMS[M[_] : Bind, IS <: InputStream](bufferSize: Int): FoldableM[M, IS, Bytes] = new FoldableM[M, IS, Bytes] {
+  def inputStreamAsFoldableMS[M[_] : Monad, IS <: InputStream](bufferSize: Int): FoldableM[M, IS, Bytes] = new FoldableM[M, IS, Bytes] {
     def foldM[B](is: IS)(fd: FoldM[M, Bytes, B]): M[B] = 
       fd.start.flatMap { st =>
         val buffer = Array.ofDim[Byte](bufferSize)
@@ -108,7 +108,7 @@ object FoldableM {
         var state = st
         while ({ length = is.read(buffer, 0, buffer.length); length != -1 })
           state = fd.fold(state, (buffer, length))
-        fd.end(state)  
+        fd.end(state) <* Monad[M].point(is.close) 
       }
 
     def foldMBreak[B, S1](is: IS)(fd: FoldM[M, Bytes, B] {type S = S1 \/ S1 }): M[B] =
