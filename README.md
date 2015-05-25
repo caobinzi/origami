@@ -131,6 +131,8 @@ To accomodate this scenario there is a `foldMBreak` method on `FoldableM` and a 
     // because Scala can't decide if the type S of the fold is of type Boolean \/ Boolean
     val allTrue = all[Boolean](v => v)
     allTrue.runBreak(list) == false
+ 
+(see [another example](#Breaking-out) further down for another example). 
     
 ### InputStream
 
@@ -198,3 +200,73 @@ Another issue with using an `Iterator` (or a `scalaz.Traversable` for that matte
 The ***origami*** solution for this feels a bit ad-hoc but at least provides something better than exceptions. Say you expect a file that is only 10 lines long and there's no use counting lines if that is not the case. You can use the `breakWhen` operator to define when to stop:
 
     count.breakWhen(n => n >= 10).runBreak((1 to 100).toList)
+
+`breakWhen` transforms a normal `FoldM` where the state type variable is `S` to one where it is `S \/ S`. This new fold indicates with a "Right" value (`\/-`) that the iteration can stop. Otherwise state values are returned in a "Left" instance (`-\/`).
+
+### SinkM
+
+A special case of `FoldM` is `SinkM`. A `SinkM` is a fold which only has side effects, its type is `type SinkM[M, T] = FoldM[M, T, Unit]`. A `SinkM` can be created to output data to a file:
+
+    import com.ambiata.origami._ , FoldM._, FoldableM._, effect.FoldIO._
+
+    val sink: SinkM[IO, String] =
+      fileUTF8LineSink("output.txt")
+
+    sink.contramap[Int](_.toString).run(List(1, 2, 3))
+
+In the example above we create a `File` sink which will accept Strings and output them to a file. Note that we need to `contramap` the sink to transform each `Int` coming from the list to a `String`.
+
+More generally sinks are generally used in conjonction with other folds to:
+
+ 1. output the streamed elements
+ 2. output the successive states
+ 3. output the final values
+
+#### Output streamed elements
+
+The `observe` method (or `<*`) can be used to output the input elements of a given fold:
+
+     val countElements: Fold[String, Int] =
+       count[String]
+
+     // the countElements fold needs to be
+     // put in IO in order to be observed by a file sink
+     val fold: Fold[IO, String, Int] =
+       (countElements.into[IO] <* fileUTF8LineSink("output.txt"))
+
+     // will output 3 lines in the output.txt file: "a", "b", "c"
+     fold.run(List("a", "b", "c")).unsafePerformIO == 3
+
+#### Output state values
+
+The `observeState` method (or `<<*`) can be used to output the successive states of a given fold:
+
+     val fold: Fold[IO, String, Int] =
+       (countElements.into[IO] <<* fileUTF8LineSink("output.txt").contramap[Int](_.toString))
+
+     // will output 3 lines in the output.txt file: "0", "1", "2"
+     fold.run(List("a", "b", "c")).unsafePerformIO == 3
+
+Since the "state" we observe here is of type `Int` we need to `contramap` the file sink in order to print Strings.
+
+As you can see the "states" we observe here are all the state values *before* the call to the `fold` method. If you want to observe the states *after* the `fold` method you need to use `observeNextState` (or `<<<*`):
+
+     val fold: Fold[IO, String, Int] =
+       (countElements.into[IO] <<<* fileUTF8LineSink("output.txt").contramap[Int](_.toString))
+
+     // will output 3 lines in the output.txt file: "1", "2", "3"
+     fold.run(List("a", "b", "c")).unsafePerformIO == 3
+
+#### Output the last value
+
+The last value `u: U` computed by a `FoldM[M, T, U]` is of type `M[U]`.
+If you want to output the last value you can simply rely on the `M` monad and the `mapFlatten` method
+
+     val fold: Fold[IO, String, Int] =
+       (countElements.into[IO] <* fileUTF8LineSink("output.txt")).mapFlatten { last: Int =>
+         fileUTF8LineSink("count.txt").contramap[Int](_.toString).run1(last)
+       }
+
+     // will output 3 lines in the output.txt file: "a", "b", "c"
+     // and one line in the count.txt file: "3"
+     fold.run(List("a", "b", "c")).unsafePerformIO == 3

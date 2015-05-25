@@ -11,6 +11,21 @@ import scalaz.concurrent._
 import scalaz.stream._
 import org.scalacheck._
 
+/**
+ * Some results:
+ *
+ *
+ *
+ * [info]  SourceIteratorLeftFold 620 ==========================
+ * [info]     SourceIteratorFoldM 658 ============================
+ * [info] SourceIteratorTaskFoldM 703 ==============================
+ *
+ * [info]               benchmark    us linear runtime
+ * [info]  SourceIteratorLeftFold   677 =
+ * [info]     SourceIteratorFoldM   802 =
+ * [info] SourceIteratorTaskFoldM   690 =
+ * [info]            ProcessFoldM 63204 ==============================
+ */
 object FoldMBenchmarkApp extends App {
   Runner.main(classOf[FoldMBenchmark], args)
 }
