@@ -16,11 +16,11 @@ When processing data streams it is often necessary to cumulate different "effect
  
 Moreover we want to be able to:
 
- - develop these features in a composable way. It should be possible to describe and test the counting of elements (or other piece of statistics like mean/variance) independently from its output to a file
+ - develop these features in a composable way. It should be possible to describe and test the counting of elements (or other types of statistics like mean/variance) independently from its output to a file
  
- - do all sorts of computations and side-effects in **one** traversal (not have to read a file twice to output the number of lines and the MD5 hash)
+ - do all sorts of computations and side-effects in **one** traversal (without having to read a file twice to output the number of lines and the MD5 hash)
  
-### `FoldM` and `FoldableM`
+## `FoldM` and `FoldableM`
  
 The ***origami*** library offers 2 abstractions to do this: `FoldM` and `FoldableM`. 
 
@@ -62,7 +62,7 @@ Besides those 2 traits the rest of the library offers:
  - a `FoldableM` instance for`Process[M, T]` when working with scalaz-stream
  - ways to create "side-effecting" folds in order to write files (`SinkM` folds)
   
-### Combinators
+## Combinators
 
 The most useful combinator is `zip` (or `<*>`). It lets you "couple" 2 folds, run them both at once and get a pair of the results:
 ```scala
@@ -77,16 +77,26 @@ def plus[N : Numeric] = new Fold[N, N] {
   def end(s: S) = s
 }
 
-def countAndSum: Fold[Int, Int] = 
+def countAndSum: Fold[Int, (Int, Int)] = 
   count <*> plus
   
 val list: List[Int] = List(1, 2, 3) 
 
 // in one pass
-countAndSum.run(list) == (3, 6) 
+countAndSum.run(list) == ((3, 6))
+
+// this is great because we are now just one step away from
+// computing the mean in one pass
+val mean: Fold[Int, Double] = countAndSum.map { case (n, s) =>
+  if (n == 0) 0.0
+  else        s.toDouble / n
+}
+
+mean.run(list) == 2 
+
 ```
   
-#### Other combinators
+### Other combinators
  
 Here is a short-list of other useful combinators:
  
@@ -106,23 +116,28 @@ Here is a short-list of other useful combinators:
  
  - `fromFoldLeft[T, U](start: U)(fold: (U, T) => T)` creates a `Fold[T, U]` from a start value and a folding function
  
-### Standard Folds
+## Standard Folds
 
 The `com.ambiata.origami.FoldId` object provides a few useful folds:
 
- - `count`, `countUnique`
+ - `count`, `countUnique` (`HashSet` based)
+ 
  - `any(pred: T => Boolean)`, `all(pred: T => Boolean)` to check a predicate over elements of type `T`
+ 
  - `plus[N]`, `times[N]` when `N : Numeric`
+ 
  - `maximum[T]`, `minimum[T]` (where `T : Order`) but also `maximumBy`, `maximumOf` to compute the element having the maximum value of an attribute (the oldest person for example), or the maximum attribute value (the maximum age for example)
+ 
  - `mean`, `stddev`, `onlineStddev` (returns count + mean + standard deviation)
+ 
  - checksums: `md5` and `sha1`, with 2 variations. `md5` operates on `Array[Byte]` and `md5Bytes` accepts elements of type `Bytes = (Array[Byte], Int)` where the `Int` is the number of elements to read from the array (useful when working with `java.io.InputStream`s)
  
  
-### Breakable FoldableM
+## Breakable FoldableM
 
 It is sometimes useful to stop folding a structure when the state of a `FoldM` has reached a given point. A typical example is the `all` fold. When using `all` we know that we can stop checking elements as soon as one of them returns `false`. 
 
-To accomodate this scenario there is a `foldMBreak` method on `FoldableM` and a corresponding `runBreak` method on `FoldM` which works when the state `S` is of the form `U \/ U` where a value of type `\/-(U)` signals that the folding can terminate:
+To accomodate this scenario there is a `foldMBreak` method on `FoldableM` and a corresponding `runBreak` method on `FoldM` which work when the state `S` is of the form `U \/ U` where a value of type `\/-(U)` signals that the folding can terminate:
 ```scala
 import scalaz._, Scalaz._ // to get a Foldable instance for List
 
@@ -136,7 +151,7 @@ allTrue.runBreak(list) == false
  ```
 (see [another example](#Breaking-out) further down for another example). 
     
-### InputStream
+## `InputStream`
 
 Time to create some side effects! For example, folds can be used over a `java.lang.InputStream`, to read a file and compute a `SHA1` hash :
 ```scala
@@ -153,11 +168,11 @@ Let's break this code down. `bytesSha1` is a `Fold[Bytes, String]` which compute
 
 Then we can run this fold over an input stream because there is, in the `FoldableM` object, an instance of `FoldableM` for `InputStreams` (seen as streams producing `Bytes` elements).
 
-### Source
+## `Iterator[String]`
 
 Another common scenario is to read file lines with `scala.io.Source.fromFile(file).getLines` which returns an `Iterator[String]`. But there are different issues in using an `Iterator`.
 
-#### State folding
+### State folding
 
 Keeping track of state is not composable. Let's say I want to do something *and also* count the number of lines in the file. If I use vars my code gets scattered:
 ```scala    
@@ -183,7 +198,9 @@ source.getLines.foldLeft(0) { (count, line) =>
   count += 1
 }
 ```  
-And this gets worse if I need to keep track of more state (to check intermediary headers for example) or if I need to "finalize" the end result (to compute a hash). On the other hand a `Fold` is very composable:
+And this gets worse if I need to keep track of more state (to check intermediary headers for example) or if I need to "finalize" the end result (to compute a hash). 
+
+On the other hand a `Fold` is very composable because it provide all the required functionality - initialization, folding, finalization - at once:
 ```scala
 // before
 doSomething.run(source.getLines)
@@ -192,23 +209,23 @@ doSomething.run(source.getLines)
 (doSomething <*> count).run(source.getLines)
 ```
     
-This way of doing also facilitates testing a lot because it becomes very easy to test folds in isolation from each other. You don't even need an `Iterator` to test `count` a `List` will do:
+This way of doing also facilitates testing a lot because it becomes very easy to test folds in isolation from each other. You don't even need an `Iterator` to test `count`, a `List` will do:
 ```scala
 count.run(List(1, 2, 3)) == List(1, 2, 3).foldLeft(0)((n, _) => n + 1)
 ```
 
-#### Breaking out    
+### Breaking out    
 
 Another issue with using an `Iterator` (or a `scalaz.Traversable` for that matter) is that there is no easy way to stop the iteration / traversal when necessary (people thinking "I could use an `Exception`", please don't!).
 
 The ***origami*** solution for this feels a bit ad-hoc but at least provides something better than exceptions. Say you expect a file that is only 10 lines long and there's no use counting lines if that is not the case. You can use the `breakWhen` operator to define when to stop:
 ```scala
-    count.breakWhen(n => n >= 10).runBreak((1 to 100).toList)
+count.breakWhen(_ >= 10).runBreak((1 to 100).toList)
 ```
 
 `breakWhen` transforms a normal `FoldM` where the state type variable is `S` to one where it is `S \/ S`. This new fold indicates with a "Right" value (`\/-`) that the iteration can stop. Otherwise state values are returned in a "Left" instance (`-\/`).
 
-### SinkM
+## `SinkM`
 
 A special case of `FoldM` is `SinkM`. A `SinkM` is a fold which only has side effects, its type is `type SinkM[M, T] = FoldM[M, T, Unit]`. A `SinkM` can be created to output data to a file:
 ```scala
@@ -228,7 +245,7 @@ More generally sinks are generally used in conjonction with other folds to:
  2. output the successive states
  3. output the final values
 
-#### Output streamed elements
+### Output streamed elements
 
 The `observe` method (or `<*`) can be used to output the input elements of a given fold:
 ```scala
@@ -244,7 +261,7 @@ val fold: Fold[IO, String, Int] =
 fold.run(List("a", "b", "c")).unsafePerformIO == 3
 ```
 
-#### Output state values
+### Output state values
 
 The `observeState` method (or `<<*`) can be used to output the successive states of a given fold:
 ```scala
@@ -266,7 +283,7 @@ val fold: Fold[IO, String, Int] =
 fold.run(List("a", "b", "c")).unsafePerformIO == 3
 ```
 
-#### Output the last value
+### Output the last value
 
 The last value `u: U` computed by a `FoldM[M, T, U]` is of type `M[U]`. If you want to output the last value you can simply rely on the `M` monad and the `mapFlatten` method
 
@@ -280,3 +297,13 @@ val fold: Fold[IO, String, Int] =
 // and one line in the count.txt file: "3"
 fold.run(List("a", "b", "c")).unsafePerformIO == 3
 ```
+
+## `Process[Task, A]`
+
+[Scalaz Stream](https://github.com/scalaz/scalaz-stream) provide powerful operators to create streams of elements and combinators to modify them or compute state in an asynchronous manner if necessary.
+
+There is a `FoldableM` instance for `Process[M, A]` in the `com.ambiata.origimi.stream.FoldableProcessM` object. The requirement is that `M : Monad : Catchable` which is the case for `Task`, the monad that is generally used with Scalaz stream processes.
+
+This means that you can reuse all the `FoldIds` for statistics (count, mean, variance, ...), or side-effecting folds (for creating reports for example) on Processes.
+
+Moreover it is possible to transform the existing Scalaz-stream `Sink`s into `SinkM` with the `com.ambiata.origimi.stream.FoldProcessM.fromSink` method. This way you can also use the scalaz-stream api for creating sinks and add those sinks to origami's `Folds`.
