@@ -28,7 +28,7 @@ object depends {
         Resolver.sonatypeRepo("releases"),
         Resolver.sonatypeRepo("snapshots"),
         Resolver.typesafeIvyRepo("releases"),
-        "ambiata-oss" at "s3://ambiata-oss",
+        Resolver.url("ambiata-oss", new URL("https://ambiata-oss.s3.amazonaws.com"))(Resolver.ivyStylePatterns),
         "scalaz-bintray" at "http://dl.bintray.com/scalaz/releases",
         "bintray/non" at "http://dl.bintray.com/non/maven"
       )
