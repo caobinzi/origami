@@ -55,6 +55,27 @@ object FoldId {
     def end(s: S) = s.toList
   }
 
+  /** @return the number of times an element changes its value */
+  def flips[T]: Fold[T, Int] = new Fold[T, Int] {
+    private var last: T = null.asInstanceOf[T]
+    type S = Int
+
+    def start = 0
+
+    def fold = (s: S, t: T) =>
+      if (last == null) {
+        last = t
+        s
+      }
+      else if (last != t) {
+        last = t
+        s + 1
+      }
+      else s
+
+    def end(s: S) = s
+  }
+
   /** lift a function to a fold that applies f to the last element */
   def lift[T, U](f: T => U) =
     last[T] map ((_:Option[T]).map(f))

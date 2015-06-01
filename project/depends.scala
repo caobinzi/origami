@@ -19,7 +19,6 @@ object depends {
   lazy val disorder =
     Seq("com.ambiata" %% "disorder" % "0.0.1-20150317050225-9c1f81e" % "test")
 
-
   lazy val caliper = Seq("com.google.caliper" % "caliper" % "0.5-rc1",
                          "com.google.guava"   % "guava"   % "14.0.1" force())
 
@@ -29,9 +28,8 @@ object depends {
         Resolver.sonatypeRepo("releases"),
         Resolver.sonatypeRepo("snapshots"),
         Resolver.typesafeIvyRepo("releases"),
+        "ambiata-oss" at "s3://ambiata-oss",
         "scalaz-bintray" at "http://dl.bintray.com/scalaz/releases",
         "bintray/non" at "http://dl.bintray.com/non/maven"
       )
 }
-
-

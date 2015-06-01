@@ -27,6 +27,7 @@ object FoldIdSpec extends Properties("FoldId") {
 
   property("last") = lastFold
   property("latest n") = latestFold
+  property("flips") = flipsFold
 
   property("plus") = plusFold
   property("plusBy") = plusByFold
@@ -88,6 +89,19 @@ object FoldIdSpec extends Properties("FoldId") {
     latest[Int](n.value).run(list) =? list.takeRight(n.value)
   }
 
+  def flipsFold = forAll { list: List[SmallInt] =>
+    // fill a list of booleans with some n consecutive values where n is a small > 0 int
+    // and values are sorted to avoid having 2 same consecutive same sizes
+    // in that case the size of the list - 1 is the number of flips
+    val consecutiveSizes = list.map(_.value).filter(_ > 0).sorted
+    val booleans = consecutiveSizes.foldLeft((List[Boolean](), true)) { case ((res, b), cur) =>
+      (res ++ List.fill(math.abs(cur))(b), !b)
+    }._1
+
+    val expected = if (consecutiveSizes.isEmpty) 0 else consecutiveSizes.size - 1
+    flips[Boolean].run(booleans) =? expected
+  }
+
   def plusFold = forAll { list: List[Int] =>
     plus[Int].run(list) =? list.foldLeft(0)(_ + _)
   }
@@ -132,22 +146,22 @@ object FoldIdSpec extends Properties("FoldId") {
     if (list.isEmpty) mean[Double].run(list) =? 0.0
     else              mean[Double].run(list) =? list.sum / list.size
   }
-  
+
   def onlineVarianceFold = forAll { nel: NonEmptyList[SmallDouble] =>
     val list = nel.list.map(_.value)
     val count = list.size
     val mean  = list.sum / list.size
-    val variance = 
+    val variance =
       if (count == 1) 0
       else            (list.map(x => x * x).sum - (list.sum * list.sum) / count) / count
-    
+
     val (c, m, v) = onlineVariance[Double].run(list)
-    
+
     (c ==~ count)    :| "count" &&
-    (m ==~ mean)     :| "mean"  && 
+    (m ==~ mean)     :| "mean"  &&
     (v ==~ variance) :| "variance"
   }
-  
+
   def lineWordCharCount = forAll { list1: List[String] =>
     val list = List("")
     val countChars: Fold[Char, Int] = count[Char]
@@ -159,14 +173,14 @@ object FoldIdSpec extends Properties("FoldId") {
         (t != ' ', if (!inWord && t != ' ') count + 1 else count)
       }
       def end(s: S) = s._2
-    }      
+    }
     val countLines = count[String]
-    
-    val countLinesWordsChars: Fold[String, ((Int, Int), Int)] = 
-      countLines zip 
+
+    val countLinesWordsChars: Fold[String, ((Int, Int), Int)] =
+      countLines zip
       countWords.nest(_.toList) zip
       countChars.nest(_.toList)
-    
+
     val words = list.flatMap(_.split(" ", -1)).filter(_.nonEmpty)
     val chars = words.flatMap(_.toList)
 
@@ -178,14 +192,14 @@ object FoldIdSpec extends Properties("FoldId") {
     val is: InputStream = new ByteArrayInputStream(sha1Test.value.getBytes("UTF-8"))
      bytesSha1.into[IO].run(is).unsafePerformIO =? sha1Test.result
   }
-  
+
   def stateFold = forAll { list: List[Int] =>
     val fold: Fold[Int, Option[Int]] = fromStateEval((i: Int) => State[Int, Int] { count: Int =>
       val above10 = i >= 10
       val newCount = if (above10) count + 1 else count
       (newCount, newCount)
     })(0)
-    
+
     fold.run(list).getOrElse(0) =? list.count(_ > 10)
   }
 
@@ -194,12 +208,12 @@ object FoldIdSpec extends Properties("FoldId") {
    */
 
   case class Sha1Test(value: String, result: String)
-  implicit def Sha1TestArbitrary: Arbitrary[Sha1Test] = 
+  implicit def Sha1TestArbitrary: Arbitrary[Sha1Test] =
     Arbitrary { Gen.oneOf(
           ("abc",       "a9993e364706816aba3e25717850c26c9cd0d89d")
         , (""   ,       "da39a3ee5e6b4b0d3255bfef95601890afd80709")
         , ("a"*1000000, "34aa973cd4c4daa4f61eeb2bdbad27316534016f")
-        ).map { case (v, r) => Sha1Test(v, r) }  
+        ).map { case (v, r) => Sha1Test(v, r) }
   }
 
   /** use small doubles for online variance to avoid overflows */
