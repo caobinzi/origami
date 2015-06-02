@@ -64,8 +64,8 @@ object FoldIOSpec extends Properties("FoldIO") {
         sha1Lines  <- IO(io.Source.fromFile(sha1Out)(Codec.UTF8).getLines)   // read the sha1
         recomputed <- bytesSha1.into[IO].run(new FileInputStream(output))   // recompute the sha1
       } yield
-        (count =? list.size) :| "count is ok" &&
-        (sha1Lines.toList(0) =? recomputed) :| "sha1 is ok"
+        (count ?= list.size) :| "count is ok" &&
+        (sha1Lines.toList(0) ?= recomputed) :| "sha1 is ok"
     }
   }
 

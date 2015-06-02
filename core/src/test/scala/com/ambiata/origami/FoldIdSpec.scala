@@ -17,6 +17,7 @@ import java.io._
 object FoldIdSpec extends Properties("FoldId") {
 
   property("count") = countFold
+  property("countOf") = countOfFold
   property("count unique") = countUniqueFold
 
   property("any") = anyFold
@@ -28,6 +29,7 @@ object FoldIdSpec extends Properties("FoldId") {
   property("last") = lastFold
   property("latest n") = latestFold
   property("flips") = flipsFold
+  property("proportion") = proportionFold
 
   property("plus") = plusFold
   property("plusBy") = plusByFold
@@ -53,19 +55,23 @@ object FoldIdSpec extends Properties("FoldId") {
   type FInt[A] = F[Int, A]
 
   def countFold = forAll { list: List[Int] =>
-    count[Int].run(list) =? list.size
+    count[Int].run(list) ?= list.size
+  }
+
+  def countOfFold = forAll { list: List[Int] =>
+    countOf[Int](isEven).run(list) ?= list.filter(isEven).size
   }
 
   def countUniqueFold = forAll { list: List[Int] =>
-    countUnique[Int].run(list) =? list.distinct.size
+    countUnique[Int].run(list) ?= list.distinct.size
   }
 
   def anyFold = forAll { list: List[Boolean] =>
-    FoldId.any[Boolean](identity _).run(list) =? list.any(identity _)
+    FoldId.any[Boolean](identity _).run(list) ?= list.any(identity _)
   }
 
   def allFold = forAll { list: List[Boolean] =>
-    FoldId.all[Boolean](identity _).run(list) =? list.all(identity _)
+    FoldId.all[Boolean](identity _).run(list) ?= list.all(identity _)
   }
 
   def anyBreakFold = forAll { list: List[Boolean] =>
@@ -74,19 +80,19 @@ object FoldIdSpec extends Properties("FoldId") {
     anyTrue.runBreak(iterator)
 
     val fromTrue = list.dropWhile(_ == false).drop(1)
-    iterator.toList =? fromTrue
+    iterator.toList ?= fromTrue
   }
 
   def allBreakFold = forAll { list: List[Boolean] =>
-    FoldId.all[Boolean](identity _).run(list) =? list.all(identity _)
+    FoldId.all[Boolean](identity _).run(list) ?= list.all(identity _)
   }
 
   def lastFold = forAll { list: List[Int] =>
-    last[Int].run(list) =? list.lastOption
+    last[Int].run(list) ?= list.lastOption
   }
 
   def latestFold = forAll { (list: List[Int], n: SmallInt) =>
-    latest[Int](n.value).run(list) =? list.takeRight(n.value)
+    latest[Int](n.value).run(list) ?= list.takeRight(n.value)
   }
 
   def flipsFold = forAll { list: List[SmallInt] =>
@@ -99,52 +105,58 @@ object FoldIdSpec extends Properties("FoldId") {
     }._1
 
     val expected = if (consecutiveSizes.isEmpty) 0 else consecutiveSizes.size - 1
-    flips[Boolean].run(booleans) =? expected
+    flips[Boolean].run(booleans) ?= expected
+  }
+
+  def proportionFold = forAll { list: List[Int] =>
+    val p = proportion[Int](isEven).run(list)
+    if (list.isEmpty) p ?= 0.0
+    else              p ?= list.filter(isEven).size.toDouble / list.size
   }
 
   def plusFold = forAll { list: List[Int] =>
-    plus[Int].run(list) =? list.foldLeft(0)(_ + _)
+    plus[Int].run(list) ?= list.foldLeft(0)(_ + _)
   }
 
   def plusByFold = forAll { list: List[String] =>
-    plusBy((_: String).size).run(list) =? list.foldLeft(0)(_ + _.size)
+    plusBy((_: String).size).run(list) ?= list.foldLeft(0)(_ + _.size)
   }
 
   def timesByFold = forAll { list: List[String] =>
-    timesBy((_: String).size).run(list) =? list.foldLeft(0)(_ * _.size)
+    timesBy((_: String).size).run(list) ?= list.foldLeft(0)(_ * _.size)
   }
 
   def timesFold = forAll { list: List[Int] =>
-    times[Int].run(list) =? list.foldLeft(0)(_ * _)
+    times[Int].run(list) ?= list.foldLeft(0)(_ * _)
   }
 
   def maximumFold = forAll { list: List[Int] =>
-    maximum[Int].run(list) =? list.maximum
+    maximum[Int].run(list) ?= list.maximum
   }
 
   def maximumByFold = forAll { list: List[String] =>
-    maximumBy((_: String).size).run(list) =? list.maximumBy(_.size)
+    maximumBy((_: String).size).run(list) ?= list.maximumBy(_.size)
   }
 
   def maximumOfFold = forAll { list: List[String] =>
-    maximumOf((_: String).size).run(list) =? list.maximumOf(_.size)
+    maximumOf((_: String).size).run(list) ?= list.maximumOf(_.size)
   }
 
   def minimumFold = forAll { list: List[Int] =>
-    minimum[Int].run(list) =? list.minimum
+    minimum[Int].run(list) ?= list.minimum
   }
 
   def minimumByFold = forAll { list: List[String] =>
-    minimumBy((_: String).size).run(list) =? list.minimumBy(_.size)
+    minimumBy((_: String).size).run(list) ?= list.minimumBy(_.size)
   }
 
   def minimumOfFold = forAll { list: List[String] =>
-    minimumOf((_: String).size).run(list) =? list.minimumOf(_.size)
+    minimumOf((_: String).size).run(list) ?= list.minimumOf(_.size)
   }
 
   def meanFold = forAll { list: List[Double] =>
-    if (list.isEmpty) mean[Double].run(list) =? 0.0
-    else              mean[Double].run(list) =? list.sum / list.size
+    if (list.isEmpty) mean[Double].run(list) ?= 0.0
+    else              mean[Double].run(list) ?= list.sum / list.size
   }
 
   def onlineVarianceFold = forAll { nel: NonEmptyList[SmallDouble] =>
@@ -184,13 +196,13 @@ object FoldIdSpec extends Properties("FoldId") {
     val words = list.flatMap(_.split(" ", -1)).filter(_.nonEmpty)
     val chars = words.flatMap(_.toList)
 
-    countLinesWordsChars.run(list) =? (((list.size, words.size), chars.size))
+    countLinesWordsChars.run(list) ?= (((list.size, words.size), chars.size))
   }
 
   def sha1Fold = forAll { sha1Test: Sha1Test =>
     // make as if the string was coming from an input stream
     val is: InputStream = new ByteArrayInputStream(sha1Test.value.getBytes("UTF-8"))
-     bytesSha1.into[IO].run(is).unsafePerformIO =? sha1Test.result
+     bytesSha1.into[IO].run(is).unsafePerformIO ?= sha1Test.result
   }
 
   def stateFold = forAll { list: List[Int] =>
@@ -200,12 +212,15 @@ object FoldIdSpec extends Properties("FoldId") {
       (newCount, newCount)
     })(0)
 
-    fold.run(list).getOrElse(0) =? list.count(_ > 10)
+    fold.run(list).getOrElse(0) ?= list.count(_ > 10)
   }
 
   /**
    * HELPERS
    */
+
+  def isEven(i: Int): Boolean =
+    i % 2 == 0
 
   case class Sha1Test(value: String, result: String)
   implicit def Sha1TestArbitrary: Arbitrary[Sha1Test] =

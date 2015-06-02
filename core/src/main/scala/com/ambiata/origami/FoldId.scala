@@ -17,7 +17,11 @@ object FoldId {
 
   /** @return fold to count elements */
   def count[T]: FoldState[T, Int] =
-    fromMonoidMap(_ => 1)
+    countOf(_ => true)
+
+  /** @return fold to count elements */
+  def countOf[T](predicate: T => Boolean): FoldState[T, Int] =
+    fromMonoidMap(t => if (predicate(t)) 1 else 0)
 
   /** @return fold to count the number of unique elements */
   def countUnique[T]: Fold[T, Int] = new Fold[T, Int] {
@@ -75,6 +79,13 @@ object FoldId {
 
     def end(s: S) = s
   }
+
+  /** @return the proportion of elements satisfying a given predicate */
+  def proportion[T](predicate: T => Boolean): Fold[T, Double] =
+    (count[T] zip countOf(predicate)).map { case (total, passed) =>
+      if (total == 0) 0.0
+      else            passed.toDouble / total
+    }
 
   /** lift a function to a fold that applies f to the last element */
   def lift[T, U](f: T => U) =

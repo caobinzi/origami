@@ -81,14 +81,14 @@ object FoldMSpec extends Properties("FoldM") {
     val fold: Fold[String, Int] =
       fromMonoidMap[String, Int](_.size)
 
-    fold.run(list) =? list.foldLeft(0)(_ + _.size)
+    fold.run(list) ?= list.foldLeft(0)(_ + _.size)
   }
 
   def fromReducerProp = forAll { list: List[String] =>
     val fold: Fold[String, Int] =
       fromReducer(Reducer.unitReducer[String, Int](_.size))
 
-    fold.run(list) =? list.foldLeft(0)(_ + _.size)
+    fold.run(list) ?= list.foldLeft(0)(_ + _.size)
   }
 
   def breakProp = forAllNoShrink { (list: List[Int], maxValue: NaturalIntSmall) =>
