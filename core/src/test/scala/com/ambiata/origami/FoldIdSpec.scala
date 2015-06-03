@@ -30,6 +30,7 @@ object FoldIdSpec extends Properties("FoldId") {
   property("latest n") = latestFold
   property("flips") = flipsFold
   property("proportion") = proportionFold
+  property("gradient") = gradientFold
 
   property("plus") = plusFold
   property("plusBy") = plusByFold
@@ -112,6 +113,21 @@ object FoldIdSpec extends Properties("FoldId") {
     val p = proportion[Int](isEven).run(list)
     if (list.isEmpty) p ?= 0.0
     else              p ?= list.filter(isEven).size.toDouble / list.size
+  }
+
+  def gradientFold = forAll { lists: List[(SmallInt, SmallInt)] =>
+    val list = lists.map { case (x, y) => (x.value, y.value) }
+    val g = gradient[Int, Int].run(list)
+    
+    if (list.size <= 1) g ?= 0.0
+    else {
+      val meanx  = list.map(_._1).sum.toDouble / list.size
+      val meany  = list.map(_._2).sum.toDouble / list.size
+      val moment = list.map { case (x, y) => (x - meanx) * (y - meany) }.sum
+      val square = list.map { case (x, y) => y.toDouble - meany }.map(y => y * y).sum
+      if (square == 0) g ?= 0.0
+      else             ((g - moment / square) <= 0.1) :| s"actual: $g, expected: ${moment/square}"
+   }
   }
 
   def plusFold = forAll { list: List[Int] =>

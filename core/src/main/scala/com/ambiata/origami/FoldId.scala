@@ -87,6 +87,33 @@ object FoldId {
       else            passed.toDouble / total
     }
 
+  /** @return the proportion of elements satisfying a given predicate */
+  def gradient[T : Numeric, V : Numeric]: Fold[(T, V), Double] = new Fold[(T, V), Double] {
+    implicit val nt = implicitly[Numeric[T]]
+    implicit val nv = implicitly[Numeric[V]]
+
+    //       (count, sumx, sumy, sumyy, sumxy)
+    type S = (Long, Long, Long, Long, Long)
+    def start = (0L, 0L, 0L, 0L, 0L)
+    def fold = (s: S, tv: (T, V)) => {
+      val (t, v) = tv
+      val (tl, vl) = (nt.toLong(t), nv.toLong(v))
+      val (count, sumx, sumy, sumyy, sumxy) = s
+      (count + 1,
+       sumx + tl,
+       sumy + vl,
+       sumyy + (vl * vl),
+       sumxy + (tl * vl)
+      )
+    }
+    def end(s: S) = {
+      val (count, sumx, sumy, sumyy, sumxy) = s
+      val z = (sumyy * count) - (sumy * sumy)
+      if (z == 0) 0.0
+      else        ((sumxy * count) - (sumx * sumy)).toDouble / z
+    }
+  }
+
   /** lift a function to a fold that applies f to the last element */
   def lift[T, U](f: T => U) =
     last[T] map ((_:Option[T]).map(f))
