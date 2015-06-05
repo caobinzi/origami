@@ -20,8 +20,16 @@ object FoldId {
     countOf(_ => true)
 
   /** @return fold to count elements */
+  def countLong[T]: FoldState[T, Long] =
+    countLongOf(_ => true)
+
+  /** @return fold to count elements */
   def countOf[T](predicate: T => Boolean): FoldState[T, Int] =
     fromMonoidMap(t => if (predicate(t)) 1 else 0)
+
+  /** @return fold to count elements */
+  def countLongOf[T](predicate: T => Boolean): FoldState[T, Long] =
+    fromMonoidMap(t => if (predicate(t)) 1L else 0L)
 
   /** @return fold to count the number of unique elements */
   def countUnique[T]: Fold[T, Int] = new Fold[T, Int] {
@@ -60,23 +68,26 @@ object FoldId {
   }
 
   /** @return the number of times an element changes its value */
-  def flips[T]: Fold[T, Int] = new Fold[T, Int] {
+  def flips[T] = new Fold[T, Int] {
     private var last: T = null.asInstanceOf[T]
     type S = Int
-
     def start = 0
-
     def fold = (s: S, t: T) =>
-      if (last == null) {
-        last = t
-        s
-      }
-      else if (last != t) {
-        last = t
-        s + 1
-      }
+      if (last == null)   { last = t; s }
+      else if (last != t) { last = t; s + 1 }
       else s
+    def end(s: S) = s
+  }
 
+  /** @return the number of times an element changes its value */
+  def flipsLong[T] = new Fold[T, Long] {
+    private var last: T = null.asInstanceOf[T]
+    type S = Long
+    def start = 0L
+    def fold = (s: S, t: T) =>
+      if (last == null)   { last = t; s }
+      else if (last != t) { last = t; s + 1L }
+      else s
     def end(s: S) = s
   }
 
