@@ -244,11 +244,33 @@ object FoldId {
     randomWithGeneratorAndFunction[T, Double](new util.Random(seed), (_:util.Random).nextDouble)
 
   /** create a fold for a mutable Random object */
-  def randomWithGeneratorAndFunction[T, R](r: util.Random, f: util.Random => R) = new Fold[T, R] {
-    type S = util.Random
-    def start = r
-    def fold = (s: S, t: T) => { f(s); s }
-    def end(s: S) = f(s)
+  def randomWithGeneratorAndFunction[T, R](random: util.Random, f: util.Random => R) = new Fold[T, Option[R]] {
+    type S = (util.Random, Option[R])
+    def start = (random, None)
+    def fold = (s: S, t: T) => { val r = f(s._1); (s._1, Some(r)) }
+    def end(s: S) = Some(f(s._1))
+  }
+
+  /**
+   * return an arbitrary streamed element so that each element has the same probability
+   * be chosen
+   */
+  def reservoirSampling[T] = new Fold[T, Option[T]] {
+    type S = (scala.util.Random, Int, Option[T])
+    def start = (new scala.util.Random, 0, None)
+    def fold = (s: S, t: T) => {
+      val (random, n, selected) = s
+      val newSelection =
+        selected match {
+          case Some(a) =>
+            val r = random.nextInt(n + 1) + 1
+            if (r == 1) Some(t) else selected
+
+        case None => Some(t)
+      }
+      (random, n + 1, newSelection)
+    }
+    def end(s: S) = s._3
   }
 
   /** @return a Fold which simply accumulates elements into a List */

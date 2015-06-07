@@ -50,6 +50,7 @@ object FoldIdSpec extends Properties("FoldId") {
   property("from state") = stateFold
 
   property("random values") = randomFold
+  property("reservoir sampling") = reservoirSamplingFold
 
   // see https://www.cs.ox.ac.uk/jeremy.gibbons/publications/iterator.pdf: "the essence of the Iterator pattern"
   property("line/word/char count") = lineWordCharCount
@@ -240,6 +241,13 @@ object FoldIdSpec extends Properties("FoldId") {
     val result = FoldableIsFoldableM[Id, List, Int].foldM(list)(randomElements)
 
     result.size ?= list.size
+  }
+
+  def reservoirSamplingFold = forAll { list1: List[Int] =>
+    val list = list1.distinct
+    val sampling = reservoirSampling[Int]
+    val nSamples = (1 to list.size).map(_ => sampling.run(list))
+    nSamples.flatten.distinct.size - list.size <= 2
   }
 
   /**
