@@ -49,8 +49,10 @@ object FoldIdSpec extends Properties("FoldId") {
   property("sha1") = sha1Fold
   property("from state") = stateFold
 
- // see https://www.cs.ox.ac.uk/jeremy.gibbons/publications/iterator.pdf: "the essence of the Iterator pattern"
- property("line/word/char count") = lineWordCharCount
+  property("random values") = randomFold
+
+  // see https://www.cs.ox.ac.uk/jeremy.gibbons/publications/iterator.pdf: "the essence of the Iterator pattern"
+  property("line/word/char count") = lineWordCharCount
 
   type F[A, B] = Fold[A, B]
   type FInt[A] = F[Int, A]
@@ -118,7 +120,7 @@ object FoldIdSpec extends Properties("FoldId") {
   def gradientFold = forAll { lists: List[(SmallInt, SmallInt)] =>
     val list = lists.map { case (x, y) => (x.value, y.value) }
     val g = gradient[Int, Int].run(list)
-    
+
     if (list.size <= 1) g ?= 0.0
     else {
       val meanx  = list.map(_._1).sum.toDouble / list.size
@@ -229,6 +231,15 @@ object FoldIdSpec extends Properties("FoldId") {
     })(0)
 
     fold.run(list).getOrElse(0) ?= list.count(_ > 10)
+  }
+
+  def randomFold = forAll { list: List[Int] =>
+    val randomElements =
+      randomInt[Int] compose FoldId.list
+
+    val result = FoldableIsFoldableM[Id, List, Int].foldM(list)(randomElements)
+
+    result.size ?= list.size
   }
 
   /**

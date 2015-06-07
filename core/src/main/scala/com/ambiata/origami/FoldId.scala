@@ -227,6 +227,30 @@ object FoldId {
     def end(s: S) = s
   }
 
+  /** a fold where the current state is a random Int */
+  def randomInt[T] =
+    randomWithGeneratorAndFunction[T, Int](new util.Random, (_:util.Random).nextInt)
+
+    /** a fold where the current state is a random Int */
+  def randomIntWithSeed[T](seed: Long) =
+    randomWithGeneratorAndFunction[T, Int](new util.Random(seed), (_:util.Random).nextInt)
+
+  /** a fold where the current state is a random Double */
+  def randomDouble[T] =
+    randomWithGeneratorAndFunction[T, Double](new util.Random, (_:util.Random).nextDouble)
+
+  /** a fold where the current state is a random Double */
+  def randomDoubleWithSeed[T](seed: Long) =
+    randomWithGeneratorAndFunction[T, Double](new util.Random(seed), (_:util.Random).nextDouble)
+
+  /** create a fold for a mutable Random object */
+  def randomWithGeneratorAndFunction[T, R](r: util.Random, f: util.Random => R) = new Fold[T, R] {
+    type S = util.Random
+    def start = r
+    def fold = (s: S, t: T) => { f(s); s }
+    def end(s: S) = f(s)
+  }
+
   /** @return a Fold which simply accumulates elements into a List */
   def list[T]: Fold[T, List[T]] = new Fold[T, List[T]] {
     // a ListBuffer is used for efficient appends
