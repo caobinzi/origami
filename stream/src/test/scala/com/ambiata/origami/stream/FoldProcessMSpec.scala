@@ -33,17 +33,18 @@ class FoldProcessMSpec extends Properties("Process Task folds") {
         plus[Int].contramap((_:String).size)
 
       var writtenLines = 0
-      val sink: F[(Int, String), Unit] =
+
+      val sink: SinkTask[(Int, String)] =
         FoldProcessM.fromSink(scalaz.stream.io.fileChunkW(testFile.getPath)).contramap[(Int, String)] { case (i, s) =>
           val line = s"sum=$i,string=$s"
           writtenLines += 1
           ByteVector((line+"\n").getBytes("UTF-8"))
         }
 
-      val totalAndOutput: F[Line, Int] =
-        (sum.into[Task] <<* sink).contramap[Line](_.value)
+      val totalAndOutput: FoldM[SafeTTask, Line, Int] =
+        (sum.into[SafeTTask] <<* sink).contramap[Line](_.value)
 
-      (IO(totalAndOutput.run(listProcess).run) |@| IO(Source.fromFile(testFile)(io.Codec("UTF-8")).getLines)) { (total, lines) =>
+      (IO(totalAndOutput.run(listProcess).run.run) |@| IO(Source.fromFile(testFile)(io.Codec("UTF-8")).getLines)) { (total, lines) =>
         val readLines: List[String] = lines.toList
         val values: List[String] = list.list.map(_.value)
         val sums = values.scanLeft(0)(_ + _.size)

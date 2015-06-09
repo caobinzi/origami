@@ -7,6 +7,7 @@ object depends {
 
   def scalaz(scalazVersion: String) =
     Seq("org.scalaz" %% "scalaz-core" % scalazVersion,
+        "org.scalaz" %% "scalaz-concurrent" % scalazVersion,
         "org.scalaz" %% "scalaz-effect" % scalazVersion)
 
   def stream(scalazVersion: String) =

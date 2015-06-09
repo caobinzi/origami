@@ -18,28 +18,28 @@ import FoldM._
  *  - a 'start' value
  *  - a 'fold' method to accumulate state
  *  - an 'end' method to finalize the result
- *  
- * Both 'start' and 'end' have an effect which allows the whole folding to take place inside a context M. 
- * 
- * If 'M' has an 'Apply' instance then FoldM can be made Applicative to allow the folding of two values U and S at 
+ *
+ * Both 'start' and 'end' have an effect which allows the whole folding to take place inside a context M.
+ *
+ * If 'M' has an 'Apply' instance then FoldM can be made Applicative to allow the folding of two values U and S at
  * the same time.
- * 
- * If 'M' has a 'Monad' instance then FoldM can be made into a 'Compose' instance which allows to 
+ *
+ * If 'M' has a 'Monad' instance then FoldM can be made into a 'Compose' instance which allows to
  * compose 2 folds into one, for example:
- * 
+ *
  *  - 'sum' computes the sum of some elements
  *  - 'list' accumulates all the elements in a list
  *  - the 'sum compose list' will accumulate the list of all the sums over some elements (this is a 'scan')
  *
  * A FoldM can be used with a 'FoldableM' which produces the elements to fold over. Examples of FoldableM include
- * 
+ *
  *  - a List
  *  - an Iterator
  *  - a scalaz Process
- *  
+ *
  * Usage example:
- * 
- *  sum.run(List(1, 2, 3)) == 6 
+ *
+ *  sum.run(List(1, 2, 3)) == 6
  */
 trait FoldM[M[_], T, U] { self =>
   type S
@@ -186,14 +186,14 @@ trait FoldM[M[_], T, U] { self =>
       f2.end(f2s)
     }
   }
-  
+
   /** create a fold that will run this fold repeatedly on input elements and collect all results */
   def nest[F[_], R](f: R => F[T])(implicit df: FoldableM[M, F[T], T], monoid: Monoid[U], monad: Monad[M]) = new FoldM[M, R, U] {
     type S = M[U]
-    def start = monad.point(monad.point(monoid.zero)) 
+    def start = monad.point(monad.point(monoid.zero))
     def fold = (s: S, r: R) =>
         Monad[M].apply2(self.run(f(r)): M[U], s: M[U])((s1: U, s2: U) => monoid.append(s1, s2))
-        
+
     def end(s: S) = s
   }
 
@@ -246,7 +246,7 @@ trait FoldM[M[_], T, U] { self =>
   /**
    * use a natural transformation to go from context M to context N
    * this can be used to transform a FoldM[A, Id, B] into a FoldM[A, Task, B] for example
-   * (a fold with no effects to a fold with monadic effects from the Task monad)  
+   * (a fold with no effects to a fold with monadic effects from the Task monad)
    */
   def into[N[_]](implicit nat: M ~> N) = new FoldM[N, T, U] {
     type S = self.S
@@ -333,33 +333,33 @@ object FoldM {
   /**
    * Typeclass instances
    */
-  
-  /** 
+
+  /**
    * Apply instance
-   *  
+   *
    * This means that we can write:
-   *  
+   *
    *   val mean: Fold[Int, Int] = (sum |@| count)(_ / _)
-   *   
+   *
    * An Apply instance is also a Functor instance so we can write:
-   *  
-   *   val meanTimes2 = mean.map(_ * 2)   
+   *
+   *   val meanTimes2 = mean.map(_ * 2)
    */
   implicit def FoldMApply[M[_] : Apply, T]: Apply[FoldM[M, T, ?]] = new Apply[FoldM[M, T, ?]] {
     type F[U] = FoldM[M, T, U]
 
-    def map[A, B](fa: F[A])(f: A => B): FoldM[M, T, B] = 
+    def map[A, B](fa: F[A])(f: A => B): FoldM[M, T, B] =
       fa map f
 
     def ap[A, B](fa: => F[A])(f: => F[A => B]): F[B] =
       map(fa zip f) { case (a, b) => b(a) }
   }
 
-  /** 
-   *  Profunctor instance 
-   *  
+  /**
+   *  Profunctor instance
+   *
    *  This is especially useful because we can "map" on the input element
-   *  
+   *
    *  val doubleSum = fromMonoid[Double] // sum all elements
    *  val roundedDoubleSum = doubleSum.mapfst(_.round)
    */
@@ -412,20 +412,20 @@ object FoldM {
 
   /**
    * A FoldM can be turned into a Compose if M has a Monad instance
-   * 
+   *
    * This allows us to write:
-   * 
+   *
    * val scans = sum compose list
-   * 
+   *
    */
   implicit def FoldMCompose[M[_] : Monad]: Compose[FoldM[M, ?, ?]] = new Compose[FoldM[M, ?, ?]] {
     type F[A,B] = FoldM[M, A, B]
 
-    def compose[A, B, C](f: F[B, C], g: F[A, B]): F[A, C] = 
+    def compose[A, B, C](f: F[B, C], g: F[A, B]): F[A, C] =
       g compose f
   }
 
-  /** 
+  /**
    * Cobind instance
    */
   def FoldMCobind[M[_] : Monad, T]: Cobind[FoldM[M, T, ?]] = new Cobind[FoldM[M, T, ?]] {
@@ -438,18 +438,18 @@ object FoldM {
       def end(s: S) = Monad[M].point(f(fa))
     }
 
-    def map[A, B](fa: F[A])(f: A => B): FoldM[M, T, B] = 
+    def map[A, B](fa: F[A])(f: A => B): FoldM[M, T, B] =
       fa map f
   }
 
-  /** 
+  /**
    * Comonad instance for Fold
    */
   implicit def FoldComonad[T]: Comonad[Fold[T, ?]] = new Comonad[Fold[T, ?]] {
     type F[U] = Fold[T, U]
 
     def copoint[A](fa: F[A]): A = fa.end(fa.start)
-    
+
     def cobind[A, B](fa: F[A])(f: F[A] => B): F[B] = new F[B] {
       type S = fa.S
       def start = fa.start
@@ -457,14 +457,18 @@ object FoldM {
       def end(s: S) = f(fa)
     }
 
-    def map[A, B](fa: F[A])(f: A => B): Fold[T, B] = 
+    def map[A, B](fa: F[A])(f: A => B): Fold[T, B] =
       fa map f
   }
 
-  /** Natural transformation from Id to IO */
-  implicit val IdIONaturalTransformation: Id ~> IO = new (Id ~> IO) {
-    def apply[A](i: Id[A]): IO[A] = IO(i)
+  /** Natural transformation from Id to a monad M */
+  def IdMonadNaturalTransformation[M[_] : Monad]: Id ~> M = new (Id ~> M) {
+    def apply[A](i: Id[A]): M[A] = Monad[M].point(i)
   }
+
+  /** Natural transformation from Id to IO */
+  implicit def IdIONaturalTransformation: Id ~> IO =
+    IdMonadNaturalTransformation[IO]
 
   /** Natural transformation from a List to an Iterator */
   implicit val ListIteratorNaturalTransformation: List ~> Iterator = new (List ~> Iterator) {

@@ -8,14 +8,25 @@ import scalaz.stream._
 import scalaz.{Id, ~>}, Id._
 import scalaz.concurrent.Task
 import Stepper._
+import effect._, SafeT._
 
 object FoldProcessM {
+
+  type SafeTTask[T] = SafeT[Task, T]
   type ProcessTask[T] = Process[Task, T]
-  type SinkTask[T] = SinkM[Task, T]
+  type SinkTask[T] = SinkM[SafeTTask, T]
   type FoldTask[T, U] = FoldM[Task, T, U]
 
   implicit val IdTaskNaturalTransformation: Id ~> Task = new (Id ~> Task) {
     def apply[A](i: Id[A]): Task[A] = Task.now(i)
+  }
+
+  implicit val IdSafeTTaskNaturalTransformation: Id ~> SafeTTask = new (Id ~> SafeTTask) {
+    def apply[A](i: Id[A]): SafeTTask[A] = SafeT.point(i)
+  }
+
+  implicit val TaskToSafeTTaskNaturalTransformation: Task ~> SafeTTask = new (Task ~> SafeTTask) {
+    def apply[A](i: Task[A]): SafeTTask[A] = SafeT.point(i.run)
   }
 
   implicit val TaskProcessTaskNaturalTransformation: Task ~> ProcessTask = new (Task ~> ProcessTask) {
@@ -26,16 +37,21 @@ object FoldProcessM {
     def apply[A](t: Id[A]): Process[Task, A] = Process.eval(Task.now(t))
   }
 
-  def fromSink[T](sink: Sink[Task, T]) = new FoldM[Task, T, Unit] {
+  /** create an origami sink from a Scalaz sink */
+  def fromSink[T](sink: Sink[Task, T]) = new SinkTask[T] {
     type S = Stepper[Task, T => Task[Unit]]
-    def start = Task.now(step(sink))
+
+    def start = {
+      val stepper = step(sink)
+      Task.now(stepper) `finally` stepper.close
+    }
 
     def fold = (s: S, t: T) => {
       s.next.run.flatMap(_.getOrElse(Nil).head(t)).run
       s
     }
 
-    def end(s: S) = s.close
+    def end(s: S) = SafeT.point(())
   }
 
   def lift[T](f: T => Task[Unit]): SinkTask[T] =

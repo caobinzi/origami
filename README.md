@@ -2,8 +2,6 @@
 
 Monadic folds
 
-# WORK IN PROGRESS, NOT READY FOR GENERAL USE!!!
-
 <img src="http://upload.wikimedia.org/wikipedia/commons/f/fd/Origami-crane.jpg" alt="fold" width="400px"/>
 
 ## Presentation

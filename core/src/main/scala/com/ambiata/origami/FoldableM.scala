@@ -13,7 +13,7 @@ import FoldId.Bytes
 import FoldM._
 
 /**
- * A structure delivering elements of type A (variable type, like a List) and which 
+ * A structure delivering elements of type A (variable type, like a List) and which
  * can be folded over
  */
 trait FoldableM[M[_], F, A]  { self =>
@@ -36,7 +36,7 @@ object FoldableM {
   def apply[M[_], F, A](implicit fm: FoldableM[M, F, A]): FoldableM[M, F, A] =
     implicitly[FoldableM[M, F, A]]
 
-  implicit def IteratorIsFoldableM[M[_] : Bind, A]: FoldableM[M, Iterator[A], A] =  new FoldableM[M, Iterator[A], A] {
+  implicit def IteratorIsFoldableM[M[_] : Bind, A]: FoldableM[M, Iterator[A], A] = new FoldableM[M, Iterator[A], A] {
     def foldM[B](iterator: Iterator[A])(fd: FoldM[M, A, B]): M[B] =
       fd.start.flatMap { st =>
         var state = st
@@ -57,7 +57,7 @@ object FoldableM {
                 case -\/(continue) => foldState(it, -\/(continue))
               }
           else state
-        } 
+        }
       }
 
       fd.start.flatMap(st => fd.end(foldState(iterator, st)))
@@ -76,7 +76,7 @@ object FoldableM {
           case head ##:: tail =>
             state match {
               case \/-(_) => state
-              case -\/(_) => 
+              case -\/(_) =>
                 fd.fold(state, head) match {
                   case \/-(stop)     => \/-(stop)
                   case -\/(continue) => foldState(tail, -\/(continue))
@@ -99,16 +99,16 @@ object FoldableM {
 
   implicit def inputStreamAsFoldableM[M[_] : Monad, IS <: InputStream]: FoldableM[M, IS, Bytes] =
     inputStreamAsFoldableMS(bufferSize = 4096)
-    
+
   def inputStreamAsFoldableMS[M[_] : Monad, IS <: InputStream](bufferSize: Int): FoldableM[M, IS, Bytes] = new FoldableM[M, IS, Bytes] {
-    def foldM[B](is: IS)(fd: FoldM[M, Bytes, B]): M[B] = 
+    def foldM[B](is: IS)(fd: FoldM[M, Bytes, B]): M[B] =
       fd.start.flatMap { st =>
         val buffer = Array.ofDim[Byte](bufferSize)
-        var length = 0    
+        var length = 0
         var state = st
         while ({ length = is.read(buffer, 0, buffer.length); length != -1 })
           state = fd.fold(state, (buffer, length))
-        fd.end(state) <* Monad[M].point(is.close) 
+        fd.end(state) <* Monad[M].point(is.close)
       }
 
     def foldMBreak[B, S1](is: IS)(fd: FoldM[M, Bytes, B] {type S = S1 \/ S1 }): M[B] =
@@ -117,7 +117,7 @@ object FoldableM {
         state match {
           case \/-(_) => state
           case -\/(_) =>
-        
+
             val buffer = Array.ofDim[Byte](bufferSize)
             var length = 0
             var break = false
@@ -146,14 +146,14 @@ trait FoldableMLaws {
 
   /**
    * The break law states that all the successive states
-   * of a given fold must not satisfy a 
+   * of a given fold must not satisfy a
    */
   def breakLaw[F, T, U, S1](foldableM: FoldableM[Id, F, T], stopPredicate: S1 => Boolean, aFold: Fold[T, U] { type S = S1 }, f: F) = {
     val collected = new scala.collection.mutable.ListBuffer[Boolean]
 
     val breakableFold: Fold[T, U] { type S = aFold.S \/ aFold.S } = new Fold[T, U] {
       type S = aFold.S \/ aFold.S
-      
+
       def start = {
         collected.append(stopPredicate(aFold.start))
         if (stopPredicate(aFold.start)) \/-(aFold.start) else -\/(aFold.start)
@@ -162,7 +162,7 @@ trait FoldableMLaws {
         val newS = s.fold(aFold.fold(_, t), aFold.fold(_, t))
 
         collected.append(stopPredicate(newS))
-        if (stopPredicate(newS)) \/-(newS) else -\/(newS)        
+        if (stopPredicate(newS)) \/-(newS) else -\/(newS)
       }
 
       def end(s: S) = s.fold(aFold.end _, aFold.end _)
@@ -171,6 +171,6 @@ trait FoldableMLaws {
     implicit val fm = foldableM
     breakableFold.runBreak(f)
 
-    collected.toList.count(identity _) <= 1   
+    collected.toList.count(identity _) <= 1
   }
 }
