@@ -17,6 +17,9 @@ object SafeTSpec extends Properties("SafeTSpec") {
 
   property("finalizers must be called in the call order") =
     callOrder
+    
+  property("finalizers must be called even if one of them fails") =
+    finalizersError
 
   def addedFinalizer = forAllNoShrink { value: Value[Int] =>
     val finalizer = TestFinalizer()
@@ -31,7 +34,7 @@ object SafeTSpec extends Properties("SafeTSpec") {
   def callOrder = forAllNoShrink { (value: Value[Int], values1: List[Value[Int]]) =>
     val values = value :: values1
     var order = new collection.mutable.ListBuffer[String]
-    def finalizer(i: Int) = Task.delay { order.append("finalizer "+i); () }
+    def finalizer(i: Int) = Task.delay { order.append("finalizer "+i) }
 
     val safeT = values1.zipWithIndex.foldLeft(point(value) `finally` finalizer(0)) { case (res, (cur, i)) =>
       res >> (point(cur) `finally` finalizer(i + 1))
@@ -41,6 +44,23 @@ object SafeTSpec extends Properties("SafeTSpec") {
 
     order.toList ?= ((values.takeWhile(_.isDefined) ++ values.dropWhile(_.isDefined).take(1))).zipWithIndex.map (_._2) map ("finalizer "+_)
   }
+
+  def finalizersError = forAllNoShrink { (value: (ValueOk[Int], Value[Int]), values1: List[(ValueOk[Int], Value[Int])]) =>
+   val values = value :: values1
+
+    var order = new collection.mutable.ListBuffer[String]
+    def finalizer(v: Value[Int], i: Int) = Task.delay { order.append("calling finalizer "+i); v.value(); () }
+
+    val safeT = values1.zipWithIndex.foldLeft(value._1.run `finally` value._2.run.void) { case (res, ((cur, f), i)) =>
+      res >> (cur.run `finally` finalizer(f, i + 1))
+    }
+
+    val result = safeT.attemptRun.run
+    val failedFinalizers = values.count(_._2.throwsException)
+
+    result.fold(l => l.errors.size, r => r._2.size) ?= failedFinalizers
+  }
+
 
   /**
    * HELPERS

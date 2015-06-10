@@ -4,18 +4,16 @@ package stream
 
 import FoldM._
 
-import scalaz.stream._
+import scalaz.stream.{Process}
 import scalaz.{Id, ~>}, Id._
 import scalaz.concurrent.Task
 import Stepper._
 import effect._, SafeT._
+import FoldTask._
 
 object FoldProcessM {
 
-  type SafeTTask[T] = SafeT[Task, T]
   type ProcessTask[T] = Process[Task, T]
-  type SinkTask[T] = SinkM[SafeTTask, T]
-  type FoldTask[T, U] = FoldM[Task, T, U]
 
   implicit val IdTaskNaturalTransformation: Id ~> Task = new (Id ~> Task) {
     def apply[A](i: Id[A]): Task[A] = Task.now(i)
@@ -38,7 +36,7 @@ object FoldProcessM {
   }
 
   /** create an origami sink from a Scalaz sink */
-  def fromSink[T](sink: Sink[Task, T]) = new SinkTask[T] {
+  def fromSink[T](sink: scalaz.stream.Sink[Task, T]) = new Sink[T] {
     type S = Stepper[Task, T => Task[Unit]]
 
     def start = {
@@ -54,7 +52,7 @@ object FoldProcessM {
     def end(s: S) = SafeT.point(())
   }
 
-  def lift[T](f: T => Task[Unit]): SinkTask[T] =
+  def lift[T](f: T => Task[Unit]): Sink[T] =
     fromSink(Process.constant(f))
 
 }

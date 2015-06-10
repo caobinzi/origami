@@ -55,12 +55,24 @@ object FoldId {
     def end(s: S) = s.fold(b => b, b => b)
   }
 
+  /** @return the first element */
+  def first[T]: FoldState[T, Option[T]] =
+    fromFoldLeft[T, Option[T]](None)((u, t) => u.orElse(Some(t)))
+
   /** @return the last element */
   def last[T]: FoldState[T, Option[T]] =
     fromFoldLeft[T, Option[T]](None)((u, t) => Some(t))
 
-  /** @return the latest n elements */
-  def latest[T](n: Int) = new Fold[T, List[T]] {
+  /** @return the first n elements */
+  def firstN[T](n: Int) = new Fold[T, List[T]] {
+    type S = scala.collection.mutable.ListBuffer[T]
+    def start = new scala.collection.mutable.ListBuffer[T]
+    def fold = (s: S, t: T) => { if (s.size < n) s.append(t); s }
+    def end(s: S) = s.toList
+  }
+
+  /** @return the last n elements */
+  def lastN[T](n: Int) = new Fold[T, List[T]] {
     type S = scala.collection.mutable.ListBuffer[T]
     def start = new scala.collection.mutable.ListBuffer[T]
     def fold = (s: S, t: T) => { s.append(t); if (s.size > n) s.remove(0); s }
@@ -98,7 +110,7 @@ object FoldId {
       else            passed.toDouble / total
     }
 
-  /** @return the proportion of elements satisfying a given predicate */
+  /** @return gradient of a given variable T, compared to another V */
   def gradient[T : Numeric, V : Numeric]: Fold[(T, V), Double] = new Fold[(T, V), Double] {
     implicit val nt = implicitly[Numeric[T]]
     implicit val nv = implicitly[Numeric[V]]
@@ -293,18 +305,18 @@ object FoldId {
     checksum("SHA1")
 
   def bytesMd5: Fold[Bytes, String] =
-    bytesChecksum("MD5")
+    checksumBytes("MD5")
 
   def bytesSha1: Fold[Bytes, String] =
-    bytesChecksum("SHA1")
+    checksumBytes("SHA1")
 
   def checksum(algorithm: String): Fold[Array[Byte], String] =
-    bytesChecksum(algorithm).contramap[Array[Byte]](a => (a, a.length))
+    checksumBytes(algorithm).contramap[Array[Byte]](a => (a, a.length))
 
-  def bytesChecksum(algorithm: String): Fold[Bytes, String] =
-    bytesMessageDigest(algorithm).map(_.map("%02X".format(_)).mkString.toLowerCase)
+  def checksumBytes(algorithm: String): Fold[Bytes, String] =
+    messageDigestBytes(algorithm).map(_.map("%02X".format(_)).mkString.toLowerCase)
 
-  def bytesMessageDigest(algorithm: String): Fold[Bytes, Array[Byte]] = new Fold[Bytes, Array[Byte]] {
+  def messageDigestBytes(algorithm: String): Fold[Bytes, Array[Byte]] = new Fold[Bytes, Array[Byte]] {
     type S = MessageDigest
     def start = MessageDigest.getInstance(algorithm)
     def fold = (md, bytes) => { md.update(bytes._1, 0, bytes._2); md }

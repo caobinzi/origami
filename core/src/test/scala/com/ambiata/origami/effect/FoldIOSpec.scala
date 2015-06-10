@@ -18,25 +18,29 @@ import scalaz.std.list._
 import scalaz.syntax.applicative._
 import scalaz.syntax.profunctor._
 import scalaz.effect._
+import scalaz.concurrent.Task
 import Arbitraries._
+import scala.io.BufferedSource
 
 object FoldIOSpec extends Properties("FoldIO") {
 
   property("drain to sink") = observeSink
   property("map file + sha1 to other file") = mapAndSha1
   property("a sink must be closed even if folding throws an exception") = sinkSafety
+  property("a buffered source can be read safely") = sourceSafety
+  property("an input stream can be read safely") = inputStreamSafety
 
   def observeSink = forAllNoShrink { list: NonEmptyList[Line] =>
 
     withTempFile { testFile =>
       // sum the size of each string
-      val sum: FoldIO[String, Int] =
+      val sum: FoldSafeTIO[String, Int] =
         plus[Int].contramap((_:String).size).into[SafeTIO]
 
       val sink: Sink[String] =
         fileUTF8LineSink(testFile.getPath)
 
-      val totalAndOutput: FoldIO[Line, Int] =
+      val totalAndOutput: FoldSafeTIO[Line, Int] =
         sum.observe(sink).contramap[Line](_.value)
 
       (totalAndOutput.run(list).run |@| IO(io.Source.fromFile(testFile)(io.Codec("UTF-8")).getLines)) { (total, lines) =>
@@ -73,20 +77,63 @@ object FoldIOSpec extends Properties("FoldIO") {
 
   def sinkSafety = forAllNoShrink { list: NonEmptyList[Line] =>
     withTempFile { testFile =>
-      // run a sum fold that's throwing an exception
-      val sum: FoldIO[String, Int] =
+      // run a count fold that's throwing an exception
+      val count: FoldSafeTIO[String, Int] =
         plus[Int].contramap[String](s => {sys.error("boom"); 1}).into[SafeTIO]
 
       val sink: Sink[String] =
         fileUTF8LineSink(testFile.getPath)
 
-      val totalAndOutput: FoldIO[Line, Int] =
-        sum.observe(sink).contramap[Line](_.value)
+      val totalAndOutput: FoldSafeTIO[Line, Int] =
+        count.observe(sink).contramap[Line](_.value)
 
       // if resources were not properly closed
-      // this would fail with "Too many open files in system"  
+      // this would fail with "Too many open files in system"
       (1 to 200) foreach { i =>
         totalAndOutput.run(list).run
+      }
+      IO(true)
+    }
+  }
+
+  def sourceSafety = forAllNoShrink { list: NonEmptyList[Line] =>
+    withTempFile { testFile =>
+      // run a count fold that's throwing an exception
+      val count: FoldSafeTIO[String, Int] =
+        plus[Int].contramap[String](s => {sys.error("boom"); 1}).into[SafeTIO]
+
+      val writeValues =
+        fileUTF8LineSink(testFile.getPath).run(list.map(_.value))
+
+      val source: BufferedSource =
+        scala.io.Source.fromFile(testFile.getPath)
+
+      // if resources were not properly closed
+      // this would fail with "Too many open files in system"
+      (1 to 200) foreach { i =>
+        Task.delay((writeValues *> count.run(source)).run.unsafePerformIO).attemptRun
+      }
+      IO(true)
+    }
+  }
+
+  def inputStreamSafety = forAllNoShrink { list: NonEmptyList[Line] =>
+    withTempFile { testFile =>
+      // run a count fold that's throwing an exception
+      val count: FoldSafeTIO[Bytes, Int] =
+        plus[Int].contramap[Bytes] { case (array, int) => {sys.error("boom"); 1} }.into[SafeTIO]
+
+      val writeValues =
+        fileUTF8LineSink(testFile.getPath).run(list.map(_.value))
+
+      val input: InputStream =
+        new FileInputStream(testFile)
+
+      // if resources were not properly closed
+      // this would fail with "Too many open files in system"
+      (1 to 200) foreach { i =>
+        //Task.delay((writeValues *> count.run(input)).run.unsafePerformIO).attemptRun
+        inputStreamAsFoldableSafeTM[IO, InputStream].foldM(input)(count)
       }
       IO(true)
     }

@@ -1,0 +1,14 @@
+site_name: origami
+pages:
+  - Home: index.md
+  - Combinators: combinators.md
+  - Standard Folds: standard.md
+  - Breakable Folds: breakable.md
+  - Foreach school: foreach.md
+  - Iterator: iterator.md
+  - Input stream: inputstream.md
+  - Sinks: sinks.md
+  - Process: process.md
+  - SafeT: safet.md
+  - Type aliases: typealiases.md
+theme: readthedocs

@@ -64,7 +64,7 @@ trait FoldM[M[_], T, U] { self =>
     def end(s: S) = m.bind(self.end(s))(f)
   }
 
-  /** map with another fold */
+  /** run another fold on the end result */
   def pipe[V](f: FoldM[M, U, V])(implicit m: Bind[M]) = new FoldM[M, T, V] {
     type S = self.S
     def start = self.start

@@ -5,12 +5,14 @@ package stream
 import FoldM._
 import FoldId._
 import FoldProcessM._
+import effect.FoldTask._
+import effect.SafeT._
 import stream.FoldableProcessM._
 import scodec.bits.ByteVector
 import scalaz.effect.IO
 import scalaz._, Scalaz._
 import scalaz.concurrent.Task
-import scalaz.stream.{Sink, Process}
+import scalaz.stream.{Process}
 import org.scalacheck._, Prop._
 import Arbitraries._
 import scala.io.Source
@@ -34,7 +36,7 @@ class FoldProcessMSpec extends Properties("Process Task folds") {
 
       var writtenLines = 0
 
-      val sink: SinkTask[(Int, String)] =
+      val sink: Sink[(Int, String)] =
         FoldProcessM.fromSink(scalaz.stream.io.fileChunkW(testFile.getPath)).contramap[(Int, String)] { case (i, s) =>
           val line = s"sum=$i,string=$s"
           writtenLines += 1

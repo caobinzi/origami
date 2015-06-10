@@ -12,14 +12,14 @@ import SafeT._
 
 object FoldIO {
 
-  // alias for IO with safe resources management
-  type SafeTIO[A] = SafeT[IO, A]
-
   // unfortunately this type alias is necessary to have a proper type inference for
   // applicative operators like <*
-  type FoldIO[A, B] = FoldM[SafeTIO, A, B]
+  type FoldIO[A, B] = FoldM[IO, A, B]
 
-  type Sink[A] = FoldIO[A, Unit]
+  type FoldSafeTIO[A, B] = FoldM[SafeTIO, A, B]
+
+  // the sink type is safe
+  type Sink[A] = FoldSafeTIO[A, Unit]
 
   /** @return an output stream sink */
   def outputStreamSink[T](out: OutputStream)(write: (OutputStream, T) => Unit): Sink[T] =

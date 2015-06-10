@@ -26,8 +26,10 @@ object FoldIdSpec extends Properties("FoldId") {
   property("anyBreak") = anyBreakFold
   property("allBreak") = allBreakFold
 
+  property("first") = firstFold
   property("last") = lastFold
-  property("latest n") = latestFold
+  property("first n") = firstNFold
+  property("last n") = lastNFold
   property("flips") = flipsFold
   property("proportion") = proportionFold
   property("gradient") = gradientFold
@@ -91,12 +93,20 @@ object FoldIdSpec extends Properties("FoldId") {
     FoldId.all[Boolean](identity _).run(list) ?= list.all(identity _)
   }
 
+  def firstFold = forAll { list: List[Int] =>
+    first[Int].run(list) ?= list.headOption
+  }
+
   def lastFold = forAll { list: List[Int] =>
     last[Int].run(list) ?= list.lastOption
   }
 
-  def latestFold = forAll { (list: List[Int], n: SmallInt) =>
-    latest[Int](n.value).run(list) ?= list.takeRight(n.value)
+  def firstNFold = forAll { (list: List[Int], n: SmallInt) =>
+    firstN[Int](n.value).run(list) ?= list.take(n.value)
+  }
+
+  def lastNFold = forAll { (list: List[Int], n: SmallInt) =>
+    lastN[Int](n.value).run(list) ?= list.takeRight(n.value)
   }
 
   def flipsFold = forAll { list: List[SmallInt] =>

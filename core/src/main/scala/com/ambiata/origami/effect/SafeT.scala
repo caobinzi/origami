@@ -54,6 +54,11 @@ case class SafeT[M[_], A](private val exec: ConcurrentLinkedQueue[Finalizer[M]] 
 }
 
 object SafeT { outer =>
+  // alias for IO with safe resources management
+  type SafeTIO[A] = SafeT[IO, A]
+
+  // alias for Task with safe resources management
+  type SafeTTask[A] = SafeT[Task, A]
 
   def `finally`[M[_] : Monad : Catchable, A](action: M[A])(after: M[Unit]): SafeT[M, A] =
     bracket(Monad[M].point(()))(_ => action)(_ => after)
