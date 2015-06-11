@@ -11,8 +11,9 @@ object build extends Build {
   lazy val origami = Project(
     id = "origami",
     base = file("."),
-    settings = standardSettings ++ promulgate.library("com.ambiata.origami", "ambiata-oss")
-  ).aggregate(core, stream)
+    settings = standardSettings ++ promulgate.library("com.ambiata.origami", "ambiata-oss"),
+    aggregate = Seq(core, stream)).
+    dependsOn(core, stream)
 
   lazy val standardSettings = Defaults.coreDefaultSettings ++
                               projectSettings              ++
