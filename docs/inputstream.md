@@ -20,6 +20,14 @@ Let's break this code down.
 
 Then we can run this fold over an input stream because there is, in the `FoldableM` object, an instance of `FoldableM` for `InputStreams` (seen as streams producing `Bytes` elements).
 
+We are also not limited to `InputStreams` being seen as a source of `Bytes` because there is also a `FoldableM` instance to interpret them as `UTF-8` lines:
+```scala
+val fileInputStream = new FileInputStream(new File("file.txt"))
+
+val numberOfLines: IO[Int] =
+  count[String].into[IO].run(fileInputStream)
+```
+
 ### Resources
 
 Note that by default running the fold will read the input stream but will ***not close it***. In particular if any exception is thrown it is the responsibility of the client to catch the exception and close the input stream.

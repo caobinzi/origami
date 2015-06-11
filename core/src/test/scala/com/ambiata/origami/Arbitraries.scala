@@ -20,7 +20,7 @@ object Arbitraries {
   type F[A, B] = FoldM[Id, A, B]
   type FInt[A] = F[Int, A]
 
-  implicit def FoldIntStringArbitrary: Arbitrary[F[Int, String]] = 
+  implicit def FoldIntStringArbitrary: Arbitrary[F[Int, String]] =
     Arbitrary(FoldIntStringArbitraryWithState.arbitrary.map(t => t))
 
   implicit def FoldIntStringArbitraryWithState: Arbitrary[F[Int, String] { type S = Int }] = Arbitrary {
@@ -51,6 +51,22 @@ object Arbitraries {
       type S = Int
 
       def start       = init.getBytes("UTF-8").length
+      def fold        = fd
+      def end(s: Int) = last(s)
+
+      override def toString = "bytes fold"
+    }
+  }
+
+  implicit def FoldStringStringArbitraryWithState: Arbitrary[F[String, String] { type S = Int }] = Arbitrary {
+    for {
+      init <- arbitrary[Int]
+      fd   <- Gen.oneOf((s: Int, s2: String) => s + s2.size, (s: Int, s2: String) => s * s2.size)
+      last <- Gen.oneOf((s: Int) => s.toString, (s: Int) => (s*2).toString)
+    } yield new F[String, String] {
+      type S = Int
+
+      def start       = init
       def fold        = fd
       def end(s: Int) = last(s)
 
