@@ -13,7 +13,7 @@ object build extends Build {
     base = file("."),
     settings = standardSettings ++ promulgate.library("com.ambiata.origami", "ambiata-oss")
   ).aggregate(core, stream)
-  
+
   lazy val standardSettings = Defaults.coreDefaultSettings ++
                               projectSettings              ++
                               compilationSettings          ++
@@ -22,23 +22,24 @@ object build extends Build {
 
     /** MODULES (sorted in alphabetical order) */
   lazy val core = Project(
-    id = "core", 
+    id = "core",
     base = file("core"),
     settings = standardSettings ++ lib("core") ++ prompt ++
       Seq(libraryDependencies ++= depends.scalaz(scalazVersion.value) ++ depends.scalacheck ++ depends.disorder,
-          name := "origami-core") 
+          name := "origami-core")
   )
 
   lazy val stream = Project(
-    id = "stream", 
+    id = "stream",
     base = file("stream"),
     settings = standardSettings ++ lib("stream") ++
-      Seq(libraryDependencies ++= depends.stream(scalazVersion.value) ++ depends.scalacheck ++ depends.caliper, 
+      Seq(libraryDependencies ++= depends.stream(scalazVersion.value) ++ depends.scalacheck ++ depends.caliper,
           name := "origami-stream")
   ).dependsOn(core, core % "test->test")
 
   lazy val projectSettings: Seq[Settings] = Seq(
     organization := "com.ambiata",
+    version in ThisBuild := "1.0",
     scalaVersion := "2.11.6",
     scalazVersion := "7.1.1",
     crossScalaVersions := Seq(scalaVersion.value, "2.10.5"),
