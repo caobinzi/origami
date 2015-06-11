@@ -22,3 +22,12 @@ Moreover folds are composable:
 Finally, side-effecting folds like `Sinks` are operating inside a `SafeT` monad to make sure that resources are always released, even when there are exceptions.
 
 Read the [documentation](http://origami.readthedocs.org/en/latest)  for more information.
+
+### Installation
+
+Add the following to your `build.sbt` file:
+```scala
+resolvers += Resolver.url("ambiata-oss", new URL("https://ambiata-oss.s3.amazonaws.com"))(Resolver.ivyStylePatterns)
+
+libraryDependencies += "com.ambiata" %% "origami" % "1.0"
+```
