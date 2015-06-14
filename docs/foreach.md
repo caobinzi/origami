@@ -1,12 +1,12 @@
 ## Foreach school
 
-Reading file lines with `scala.io.Source.fromFile(file).getLines` is very convenient. `getLines` returns an `Iterator[String]` which you can use with regular Scala collection operator (`map`, `filter`,...) for processing.
+Reading file lines with `scala.io.Source.fromFile(file).getLines` is very convenient. `getLines` returns an `Iterator[String]` which you can use with regular Scala collection operators (`map`, `filter`...) for processing.
 
-But there are different issues with the use of `Iterator` and `Source`.
+But there are some issues with the use of `Iterator` and `Source`.
 
 #### State folding
 
-Keeping track of state is not composable. Let's say I want to compute the total line size *and also* count the number of lines in the file. If I use vars my code gets scattered:
+Keeping track of state is not composable. Let's say I want to compute the total line size *and also* count the number of lines in the file. If I use vars my code gets scattered in 2 different places:
 ```scala
 val source = scala.io.Source.fromFile("file.txt")
 
@@ -28,7 +28,7 @@ val (count, totalSize) =
     (c + 1, ts + line.size)
   }
 ```  
-And this gets worse if I need to keep track of more state (to check intermediary headers for example) or if I need to "finalize" the end result (to compute a the average line size for example).
+And this gets worse if I need to keep track of more state (to check intermediary headers for example) or if I need to "finalize" the end result (to compute the average line size for example).
 
 On the other hand a `Fold` is very composable because it provides all the required functionality - initialization, folding, finalization - at once:
 ```scala

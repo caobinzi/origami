@@ -3,6 +3,7 @@ import Keys._
 import depends.scalazVersion
 import com.typesafe.sbt._
 import com.ambiata.promulgate.project.ProjectPlugin._
+import cappi.Plugin._
 
 object build extends Build {
   type Settings = Def.Setting[_]
@@ -34,7 +35,7 @@ object build extends Build {
     id = "stream",
     base = file("stream"),
     settings = standardSettings ++ lib("stream") ++
-      Seq(libraryDependencies ++= depends.stream(scalazVersion.value) ++ depends.scalacheck ++ depends.caliper,
+      Seq(libraryDependencies ++= depends.stream(scalazVersion.value) ++ depends.scalacheck ++ depends.caliper ++ depends.scalameter,
           name := "origami-stream")
   ).dependsOn(core, core % "test->test")
 
@@ -63,7 +64,13 @@ object build extends Build {
     cancelable := true,
     javaOptions ++= Seq("-Xmx3G", "-Xss4M"),
     fork in test := true
-  )
+  ) ++ cappiSettings ++
+  Seq(
+    testFrameworks += new TestFramework("org.scalameter.ScalaMeterFramework"),
+    logBuffered := false)
+
+  logBuffered := false
+
 
   def lib(name: String) =
     promulgate.library(s"com.ambiata.origami.$name", "ambiata-oss")

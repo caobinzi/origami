@@ -8,19 +8,17 @@ import scalaz.concurrent.Task
 import scalaz.stream.{Process1, Process}
 import scalaz.stream.Process._
 import FoldProcessM._
+import FoldSafeT._
 
 /**
  * Foldable instance for Process[M, O]
  */
 object FoldableProcessM {
+  
+  implicit def ProcessFoldableM[M[_], A](implicit F: Monad[M], C: Catchable[M]): FoldableM[M, Process[M, A], A] =
+    ProcessFoldableNatM(F, C, F, C, NaturalTransformation.refl)
 
-  implicit def ProcessTaskFoldableM[A]: FoldableM[Task, Process[Task, A], A] =
-    ProcessFoldableM[Task, Task, A](Monad[Task], Catchable[Task], Monad[Task], Catchable[Task], NaturalTransformation.refl[Task])
-
-  implicit def ProcessSafeTTaskFoldableM[A]: FoldableM[SafeTTask, Process[Task, A], A] =
-    ProcessFoldableM[SafeTTask, Task, A]
-
-  def ProcessFoldableM[M[_], N[_], A](implicit FM: Monad[M], CM: Catchable[M],
+  implicit def ProcessFoldableNatM[M[_], N[_], A](implicit FM: Monad[M], CM: Catchable[M],
                                                FN: Monad[N], CN: Catchable[N],
                                                nat: N ~> M): FoldableM[M, Process[N, A], A] =
     new FoldableM[M, Process[N, A], A] {

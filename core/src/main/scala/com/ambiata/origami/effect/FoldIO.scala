@@ -9,18 +9,24 @@ import FoldId.Bytes
 import scalaz._, Scalaz._, effect._
 import FoldM._
 import SafeT._
+import FoldIOTypes._
 
-object FoldIO {
+trait FoldIO extends FoldIOTypes with FoldIOFunctions with FoldIOImplicits
+object FoldIO extends FoldIO
 
-  // unfortunately this type alias is necessary to have a proper type inference for
-  // applicative operators like <*
+trait FoldIOTypes {
+
   type FoldIO[A, B] = FoldM[IO, A, B]
 
   type FoldSafeTIO[A, B] = FoldM[SafeTIO, A, B]
 
   // the sink type is safe
   type Sink[A] = FoldSafeTIO[A, Unit]
+}
 
+object FoldIOTypes extends FoldIOTypes
+
+trait FoldIOFunctions {
   /** @return an output stream sink */
   def outputStreamSink[T](out: OutputStream)(write: (OutputStream, T) => Unit): Sink[T] =
     sinkIO[T, OutputStream](SafeT.point(out))(write)
@@ -76,5 +82,14 @@ object FoldIO {
     }
     IO(s) `finally` IO(s.close)
   }
-
 }
+
+object FoldIOFunctions extends FoldIOFunctions
+
+trait FoldIOImplicits {
+  /** Natural transformation from Id to IO */
+  implicit def IdIONaturalTransformation: Id ~> IO =
+    IdMonadNaturalTransformation[IO]
+}
+
+object FoldIOImplicits extends FoldIOImplicits

@@ -10,6 +10,7 @@ import scalaz.syntax.monad._
 import scalaz.syntax.either._
 import scalaz.syntax.foldable._
 import scalaz.std.list._
+import scalaz.concurrent.Task
 import java.security.MessageDigest
 import FoldM._
 
@@ -121,35 +122,59 @@ trait FoldM[M[_], T, U] { self =>
   }
 
   /** zip with another fold only for its side effects */
-  def <*[V](f: SinkM[M, T])(implicit ap: Apply[M]) =
+  def <*(f: SinkM[M, T])(implicit ap: Apply[M]) =
     zip(f).map(_._1)
 
   /** alias for <* */
-  def observe[V](f: SinkM[M, T])(implicit ap: Apply[M]) =
+  def observe(f: SinkM[M, T])(implicit ap: Apply[M]) =
     zip(f).map(_._1)
 
   /** observe both the input value and the current state */
-  def observeState[V](sink: SinkM[M, (S, T)])(implicit ap: Apply[M]) = new FoldM[M, T, U] {
+  def observeWithState(sink: SinkM[M, (S, T)])(implicit ap: Apply[M]) = new FoldM[M, T, U] {
     type S = (self.S, sink.S)
     def start = ap.tuple2(self.start , sink.start)
     def fold = (s: S, t: T) => (self.fold(s._1, t), sink.fold(s._2, (s._1, t)))
     def end(s: S) = ap.tuple2(self.end(s._1), sink.end(s._2)).map(_._1)
   }
 
+  /** alias for observeWithState */
+  def <<*(sink: SinkM[M, (S, T)])(implicit ap: Apply[M]) =
+    observeWithState(sink)
+
+  /** observe the current state */
+  def observeState(sink: SinkM[M, S])(implicit ap: Apply[M]) = new FoldM[M, T, U] {
+    type S = (self.S, sink.S)
+    def start = ap.tuple2(self.start , sink.start)
+    def fold = (s: S, t: T) => (self.fold(s._1, t), sink.fold(s._2, s._1))
+    def end(s: S) = ap.tuple2(self.end(s._1), sink.end(s._2)).map(_._1)
+  }
+
   /** alias for observeState */
-  def <<*[V](sink: SinkM[M, (S, T)])(implicit ap: Apply[M]) =
+  def <-*(sink: SinkM[M, S])(implicit ap: Apply[M]) =
     observeState(sink)
 
   /** observe both the input value and the next state */
-  def observeNextState[V](sink: SinkM[M, (S, T)])(implicit ap: Apply[M]) = new FoldM[M, T, U] {
+  def observeWithNextState(sink: SinkM[M, (S, T)])(implicit ap: Apply[M]) = new FoldM[M, T, U] {
     type S = (self.S, sink.S)
     def start = ap.tuple2(self.start , sink.start)
     def fold = (s: S, t: T) => { val next = self.fold(s._1, t); (next, sink.fold(s._2, (next, t))) }
     def end(s: S) = ap.tuple2(self.end(s._1), sink.end(s._2)).map(_._1)
   }
 
+  /** alias for observeWithNextState */
+  def <<<*(sink: SinkM[M, (S, T)])(implicit ap: Apply[M]) =
+    observeWithNextState(sink)
+
+  /** observe the next state */
+  def observeNextState(sink: SinkM[M, S])(implicit ap: Apply[M]) = new FoldM[M, T, U] {
+    type S = (self.S, sink.S)
+    def start = ap.tuple2(self.start , sink.start)
+    def fold = (s: S, t: T) => { val next = self.fold(s._1, t); (next, sink.fold(s._2, next)) }
+    def end(s: S) = ap.tuple2(self.end(s._1), sink.end(s._2)).map(_._1)
+  }
+
   /** alias for observeNextState */
-  def <<<*[V](sink: SinkM[M, (S, T)])(implicit ap: Apply[M]) =
+  def <<-*(sink: SinkM[M, S])(implicit ap: Apply[M]) =
     observeNextState(sink)
 
   /**
@@ -267,8 +292,9 @@ trait FoldM[M[_], T, U] { self =>
 /**
  * Typeclass instances and creation methods for folds
  */
-object FoldM {
+object FoldM extends FoldMTypes with FoldMFunctions with FoldMImplicits
 
+trait FoldMTypes {
   /** alias for a non-effectful Fold */
   type Fold[T, U] = FoldM[Id, T, U]
 
@@ -277,6 +303,11 @@ object FoldM {
 
   /** alias for a Fold sinking its last value */
   type SinkM[M[_], T] = FoldM[M, T, Unit]
+}
+
+object FoldMTypes extends FoldMTypes
+
+trait FoldMFunctions {
 
   /** @return a fold which uses a Monoid to accumulate elements */
   def fromMonoidMap[T, M : Monoid](f: T => M) = new Fold[T, M] {
@@ -330,6 +361,11 @@ object FoldM {
     def end(s: S) = Monad[M].point(s)
   }
 
+}
+
+object FoldMFunctions extends FoldMFunctions
+
+trait FoldMImplicits {
   /**
    * Typeclass instances
    */
@@ -466,13 +502,11 @@ object FoldM {
     def apply[A](i: Id[A]): M[A] = Monad[M].point(i)
   }
 
-  /** Natural transformation from Id to IO */
-  implicit def IdIONaturalTransformation: Id ~> IO =
-    IdMonadNaturalTransformation[IO]
-
   /** Natural transformation from a List to an Iterator */
   implicit val ListIteratorNaturalTransformation: List ~> Iterator = new (List ~> Iterator) {
     def apply[A](i: List[A]): Iterator[A] = i.iterator
   }
 
 }
+
+object FoldMImplicits extends FoldMImplicits

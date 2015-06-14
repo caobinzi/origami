@@ -27,11 +27,14 @@ Finally, side-effecting folds like `Sinks` are operating inside a `SafeT` monad 
 
 The ***origami*** library provides 2 abstractions for "folding" data streams: `FoldM` and `FoldableM`.
 
-A `FoldM[M, T, U]` represents the operation you want to execute on a data stream:
+A `FoldM[M, T, U]` represents the operation you want to execute on a data stream. It has:
 
- - a internal `type S` representing the accumulated state
+ - an internal `type S` representing the accumulated state
+
  - a `start` method returning an initial `M[S]` element
- - a `fold` method `(s: S, t: T) => S` describing how to "fold" the streamed elements with the previous state
+
+ - a `fold` method `(s: S, t: T) => S` describing how to "fold" a streamed element with the previous state
+
  - a `end(s: S)` method returning `M[U]` and finalizing the computation
 
 A `FoldableM[M, F, T]` represents a stream `F` of elements of type `T`. It can use a `FoldM[M, T, U]` to compute a final value `M[U]`.
@@ -39,7 +42,8 @@ A `FoldableM[M, F, T]` represents a stream `F` of elements of type `T`. It can u
 This is all very abstract so let's have a look at a simple example:
 
 ```scala
-import com.ambiata.origami._, FoldableM._
+import com.ambiata.origami._, Origami._
+import scalaz._, Scalaz._
 
 def count[T] = new FoldM[Id, T, Int] {
   type S = Int
@@ -50,7 +54,7 @@ def count[T] = new FoldM[Id, T, Int] {
 
 val list: List[Int] = List(1, 2, 3)
 
-FoldableM[Id, List].foldm(list)(count) == 3
+FoldableM[Id, List[Int], Int].foldM(list)(count) == 3
 
 // or simply
 count.run(list) == 3
@@ -58,17 +62,17 @@ count.run(list) == 3
 
 In the example above `count` is a `FoldM` where `M` is simply `Id`. Its internal state is an `Int` and is simply returned at the end of the fold.
 
-`List` is a Scalaz `Foldable` and there is a `FoldableM` instance available for any `Foldable` when `M` has a `Bind` instance (trivial here since `M = Id`), so we can "run" the `count` fold on the list of ints.
+`List` is a Scalaz `Foldable` and there is a `FoldableM` instance available for any `Foldable` when `M` has a `Bind` instance (trivial here since `M = Id`), so we can "run" the `count` fold on a list of ints.
 
 ## Features
 
-Besides those 2 traits the rest of the library provides:
+Beyond those 2 traits the rest of the library provides:
 
  - combinators for `FoldM`s
 
  - type aliases for specialized folds, like `Fold[T, U]` when `M = Id`
 
- - standard `Fold[T, U]` folds for statistics, random values generation or hashes
+ - standard folds for statistics, random values generation or hashes
 
  - a way to stop the folding of values when a given state has been reached
 

@@ -1,10 +1,10 @@
 ## Type aliases
 
-Scala type inference can be a bit tricky, especially in presence of higher-kinded types. One way around that is to use the excellent [kind-projector compiler plugin](https://github.com/non/kind-projector).
+Scala type inference can be a bit tricky, especially in presence of higher-kinded types. One way around that is to use the excellent [kind-projector compiler plugin](https://github.com/non/kind-projector). When necessary you can annotate methods with a type like `SafeT[M, ?]` instead of `({type l[A]=SafeT[M,A]})#l`.
 
 Another way is to use type synonyms for common situations:
 
-##### For the `com.ambiata.origami` package
+#### In the `com.ambiata.origami` package
 
  Type                  | Equivalent                       | Source      | Comment
  ----------------------| -------------------------------- | ----------- | ---  
@@ -14,7 +14,7 @@ Another way is to use type synonyms for common situations:
  `SinkM[M[_], T]`      | `FoldM[M, T, Unit]`              | `FoldM`     | Fold which doesn't return any value
 
 
-##### For the `com.ambiata.origami.effect` package
+#### In the `com.ambiata.origami.effect` package
 
  Type                  | Equivalent                       | Source         | Comment
  ----------------------| -------------------------------- | ---------------| ---  
@@ -28,7 +28,7 @@ Another way is to use type synonyms for common situations:
  `Sink[T, U]`          | `FoldM[SafeTTask, T, Unit]`      | `FoldTask`     | the Sink type for Task is safe
 
 
-##### For the `com.ambiata.origami.stream` package
+#### In the `com.ambiata.origami.stream` package
 
  Type                  | Equivalent                       | Source         | Comment
  ----------------------| -------------------------------- | ---------------| ---  

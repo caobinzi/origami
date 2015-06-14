@@ -6,6 +6,7 @@ import FoldM._
 import FoldId._
 import FoldProcessM._
 import effect.FoldTask._
+import effect.FoldSafeT._
 import effect.SafeT._
 import stream.FoldableProcessM._
 import scodec.bits.ByteVector

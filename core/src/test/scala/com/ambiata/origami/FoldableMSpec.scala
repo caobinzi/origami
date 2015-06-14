@@ -34,12 +34,12 @@ object FoldableMSpec extends Properties("FoldableM") {
 
   def inputStreamBytesFoldableMBreakLaw = forAll { (s: String, fold: F[Bytes, String] { type S = Int }) =>
     val inputStream = new ByteArrayInputStream(s.getBytes("UTF-8"))
-    FoldableM.laws.breakLaw(inputStreamAsFoldableMS[Id, InputStream](4096), (i: Int) => i % 2 == 0, fold, inputStream)
+    FoldableM.laws.breakLaw(InputStreamIsFoldableMS[Id, InputStream](4096), (i: Int) => i % 2 == 0, fold, inputStream)
   }
 
   def inputStreamStringFoldableMBreakLaw = forAll { (s: String, fold: F[String, String] { type S = Int }) =>
     val inputStream = new ByteArrayInputStream(s.getBytes("UTF-8"))
-    FoldableM.laws.breakLaw(inputStreamAsFoldableStringMS[Id, InputStream](4096), (i: Int) => i % 2 == 0, fold, inputStream)
+    FoldableM.laws.breakLaw(InputStreamIsFoldableStringMS[Id, InputStream](4096), (i: Int) => i % 2 == 0, fold, inputStream)
   }
 
 }

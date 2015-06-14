@@ -15,18 +15,6 @@ object FoldProcessM {
 
   type ProcessTask[T] = Process[Task, T]
 
-  implicit val IdTaskNaturalTransformation: Id ~> Task = new (Id ~> Task) {
-    def apply[A](i: Id[A]): Task[A] = Task.now(i)
-  }
-
-  implicit val IdSafeTTaskNaturalTransformation: Id ~> SafeTTask = new (Id ~> SafeTTask) {
-    def apply[A](i: Id[A]): SafeTTask[A] = SafeT.point(i)
-  }
-
-  implicit val TaskToSafeTTaskNaturalTransformation: Task ~> SafeTTask = new (Task ~> SafeTTask) {
-    def apply[A](i: Task[A]): SafeTTask[A] = SafeT.point(i.run)
-  }
-
   implicit val TaskProcessTaskNaturalTransformation: Task ~> ProcessTask = new (Task ~> ProcessTask) {
     def apply[A](t: Task[A]): Process[Task, A] = Process.eval(t)
   }

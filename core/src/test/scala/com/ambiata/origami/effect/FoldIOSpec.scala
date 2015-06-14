@@ -7,19 +7,16 @@ import java.util.UUID
 
 import org.scalacheck.Prop._
 import org.scalacheck._, Gen._, Arbitrary._
-import FoldIO._
+import FoldM._, FoldableM._
 import SafeT._
+import FoldIO._
 import FoldId._
-import FoldM._
-import FoldableSafeTM._
-import scala.io.Codec
-import scalaz._
-import scalaz.std.list._
-import scalaz.syntax.applicative._
-import scalaz.syntax.profunctor._
+import FoldSafeT._
+import scalaz._, Scalaz._
 import scalaz.effect._
-import scalaz.concurrent.Task
+import scalaz.concurrent._
 import Arbitraries._
+import scala.io.Codec
 import scala.io.BufferedSource
 
 object FoldIOSpec extends Properties("FoldIO") {
@@ -31,7 +28,6 @@ object FoldIOSpec extends Properties("FoldIO") {
   property("an input stream can be read safely") = inputStreamSafety
 
   def observeSink = forAllNoShrink { list: NonEmptyList[Line] =>
-
     withTempFile { testFile =>
       // sum the size of each string
       val sum: FoldSafeTIO[String, Int] =
@@ -52,7 +48,6 @@ object FoldIOSpec extends Properties("FoldIO") {
   }
 
   def mapAndSha1 = forAllNoShrink { list: NonEmptyList[Line] =>
-
     withTempDir { dir =>
       val (input, output, sha1Out) = (new File(dir, "input"), new File(dir, "output"), new File(dir, "sha1"))
 
@@ -64,11 +59,11 @@ object FoldIOSpec extends Properties("FoldIO") {
 
       for {
         _          <- fileUTF8LineSink(input).run(list.list.map(_.value)).run           // save input file
-        lines      <- getLinesFrom(input)                               // read lines
-        mapped     =  lines.map((_:String).count(_.isDigit))                        // map lines
-        count      <- countAndSha1.run(mapped).run                                      // count, output and sha1
-        sha1Lines  <- getLinesFrom(sha1Out)                             // read the sha1
-        recomputed <- bytesSha1.into[SafeTIO].run(new FileInputStream(output)).run      // recompute the sha1
+        lines      <- getLinesFrom(input)                                               // read lines
+        mapped     =  lines.map((_:String).count(_.isDigit))                            // map lines
+        count      <- IteratorIsFoldableM[SafeTIO, Int].foldM(mapped)(countAndSha1).run // count, output and sha1
+        sha1Lines  <- getLinesFrom(sha1Out)                                             // read the sha1
+        recomputed <- sha1Bytes.into[SafeTIO].run(new FileInputStream(output)).run      // recompute the sha1
       } yield
         (count ?= list.size) :| "count is ok" &&
         (sha1Lines.toList(0) ?= recomputed) :| "sha1 is ok"
@@ -133,7 +128,7 @@ object FoldIOSpec extends Properties("FoldIO") {
       // this would fail with "Too many open files in system"
       (1 to 200) foreach { i =>
         //Task.delay((writeValues *> count.run(input)).run.unsafePerformIO).attemptRun
-        inputStreamAsFoldableSafeTM[IO, InputStream].foldM(input)(count)
+        count.run(input) // inputStreamAsFoldableSafeTM[IO, InputStream].foldM(input)(count)
       }
       IO(true)
     }

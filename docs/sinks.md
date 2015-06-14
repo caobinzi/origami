@@ -4,9 +4,10 @@ Not only we need to [read from streams](iterator.md) but we also need to write e
 
 A special case of `FoldM` is `SinkM`. A `SinkM` is a fold which only has side effects, its type is `type SinkM[M, T] = FoldM[M, T, Unit]`. A `SinkM` can be created to output data to a file:
 ```scala
-import com.ambiata.origami._ , FoldM._, FoldableM._, effect.FoldIO._
+import com.ambiata.origami._, Origami._
+import scalaz._, Scalaz._
 
-val sink: SinkM[IO, String] =
+val sink: Sink[String] =
   fileUTF8LineSink("output.txt")
 
 sink.contramap[Int](_.toString).run(List(1, 2, 3))
@@ -24,48 +25,60 @@ More generally sinks are generally used in conjunction with other folds to:
 
 The `observe` method (or `<*`) can be used to output the elements streamed to a given fold:
 ```scala
+import com.ambiata.origami._, Origami._
+import scalaz._, Scalaz._
+
 val countElements: Fold[String, Int] =
   count[String]
 
 // the countElements fold needs to be
 // put in IO in order to be observed by a file sink
-val fold: Fold[SafeTIO, String, Int] =
+val fold: FoldM[SafeTIO, String, Int] =
   (countElements.into[SafeTIO] <* fileUTF8LineSink("output.txt"))
 
 // will output 3 lines in the output.txt file: "a", "b", "c"
-fold.run(List("a", "b", "c")).unsafePerformIO == 3
+fold.run(List("a", "b", "c")).run.unsafePerformIO == 3
 ```
 
 You can notice that the `M` monad used here is `SafeTIO` so that the output file gets closed even if there is an exception when doing the folding (see [SafeT](safet.md) for more information).
 
 ### Output state values
 
-The `observeState` method (or `<<*`) can be used to output the successive states of a given fold:
+There are 4 methods to observe state:
+
+Observe                           | method                 | alias
+--------------------------------- | ---------------------- | -----
+current state                     | `observeState`         | `<-*`
+current state and current element | `observeWithState`     | `<<*`
+next state                        | `observeNextState`     | `<<-*`
+next state and current element    | `observeWithNextState` | `<<<*`
+
+Let's see the `observeWithState` method in action:
 ```scala
-val fold: Fold[SafeTIO, String, Int] =
-  (countElements.into[SafeTIO] <<* fileUTF8LineSink("output.txt").contramap[Int](_.toString))
+import com.ambiata.origami._, Origami._
+import scalaz._, Scalaz._
+
+// either leave the full type annotation out or
+// specify the state S in order to observe it
+val countElements: Fold[String, Int] { type S = Int } =
+  count[String]
+
+// the countElements fold needs to be
+// put in SafeTIO in order to be observed by a file sink
+val fold: FoldM[SafeTIO, String, Int] =
+  (countElements.into[SafeTIO] <<* fileUTF8LineSink("output.txt").contramap[(Int, String)](_._1.toString))
 
 // will output 3 lines in the output.txt file: "0", "1", "2"
 fold.run(List("a", "b", "c")).run.unsafePerformIO == 3
 ```
 
-Since the "state" we observe here is of type `Int` we need to `contramap` the file sink in order to print Strings.
-
-As you can see the "states" we observe here are all the state values *before* the call to the `fold` method. If you want to observe the states *after* the `fold` method you need to use `observeNextState` (or `<<<*`):
-```scala
-val fold: Fold[SafeTIO, String, Int] =
-  (countElements.into[SafeTIO] <<<* fileUTF8LineSink("output.txt").contramap[Int](_.toString))
-
-// will output 3 lines in the output.txt file: "1", "2", "3"
-fold.run(List("a", "b", "c")).run.unsafePerformIO == 3
-```
 
 ### Output the last value
 
 The last value `u: U` computed by a `FoldM[M, T, U]` is of type `M[U]`. If you want to output the last value you can simply rely on the `M` monad and the `mapFlatten` method
 
 ```scala
-val fold: Fold[SafeTIO, String, Int] =
+val fold: FoldM[SafeTIO, String, Int] =
   (countElements.into[SafeTIO] <* fileUTF8LineSink("output.txt")).mapFlatten { last: Int =>
     fileUTF8LineSink("count.txt").contramap[Int](_.toString).run1(last)
   }

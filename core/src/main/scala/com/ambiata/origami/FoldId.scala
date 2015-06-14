@@ -13,7 +13,7 @@ import scalaz.Id._
 /**
  * List of predefined FoldIds
  */
-object FoldId {
+trait FoldId {
 
   /** @return fold to count elements */
   def count[T]: FoldState[T, Int] =
@@ -304,10 +304,10 @@ object FoldId {
   def sha1: Fold[Array[Byte], String] =
     checksum("SHA1")
 
-  def bytesMd5: Fold[Bytes, String] =
+  def md5Bytes: Fold[Bytes, String] =
     checksumBytes("MD5")
 
-  def bytesSha1: Fold[Bytes, String] =
+  def sha1Bytes: Fold[Bytes, String] =
     checksumBytes("SHA1")
 
   def checksum(algorithm: String): Fold[Array[Byte], String] =
@@ -323,3 +323,5 @@ object FoldId {
     def end(s: S) = s.digest
   }
 }
+
+object FoldId extends FoldId

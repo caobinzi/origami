@@ -3,6 +3,10 @@ package origami
 
 import com.google.caliper._
 import FoldM._
+import effect._
+import FoldTask._
+import FoldSafeT._
+import FoldIO._
 import FoldableM.IteratorIsFoldableM
 import stream.FoldProcessM._
 import scalaz._, Id._
@@ -14,7 +18,7 @@ import org.scalacheck._
 /**
  * Some results:
  *
- *
+ *  sbt> cappi::benchmark
  *
  * [info]  SourceIteratorLeftFold 620 ==========================
  * [info]     SourceIteratorFoldM 658 ============================
@@ -32,21 +36,21 @@ object FoldMBenchmarkApp extends App {
 
 class FoldMBenchmark extends SimpleScalaBenchmark {
   val TEST_FILE = "target/test-file-medium"
-  
+
   val write = {
   	val writer = new java.io.FileWriter(TEST_FILE)
   	(1 to 10000).toIterator.foreach(i => writer.write(i.toString+"\n"))
   	writer.close
   }
 
-  val sum: Fold[Int, Int] = 
+  val sum: Fold[Int, Int] =
     fromMonoid[Int]
 
   def lines[A](reps: Int)(f: Iterator[Int] => A): A = {
     repeat(reps) {
       val source = scala.io.Source.fromFile(TEST_FILE)
       try f(source.getLines.map(_.toInt))
-      finally source.close 
+      finally source.close
     }
   }
 
@@ -64,7 +68,16 @@ class FoldMBenchmark extends SimpleScalaBenchmark {
 
   def timeProcessFoldM(reps: Int): Unit =  {
     import stream.FoldableProcessM._
-    
+
+    val lines = io.linesR(TEST_FILE)
+    repeat(reps)(
+      sum.into[Task].run(lines.map(_.toInt)).run
+    )
+  }
+
+  def timeProcessFoldMWithConcurrency(reps: Int): Unit =  {
+    import stream.FoldableProcessM._
+
     val lines = io.linesR(TEST_FILE)
     repeat(reps)(
       sum.into[Task].run(lines.map(_.toInt)).run

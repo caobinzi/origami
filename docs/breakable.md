@@ -2,17 +2,17 @@
 
 It is sometimes useful to stop folding a structure when the state of a `FoldM` has reached a given point. A typical example is the `all` fold. When using `all` we know that we can stop checking elements as soon as one of them returns `false`.
 
-To accommodate this scenario there is a `foldMBreak` method on `FoldableM` and a corresponding `runBreak` method on `FoldM` which works when the state `S` is of the form `U \/ U`.
+To accommodate this scenario there is a `foldMBreak` method on `FoldableM` and a corresponding `runBreak` method on `FoldM` which can be invoked when the state `S` is of the form `U \/ U`.
 In that case, a value of type `\/-(U)` signals that the folding can terminate:
 ```scala
 import scalaz._, Scalaz._ // to get a Foldable instance for List
 
-val list = List(true, true, false, true, true)
+val list = List(5, 3, 11, 8, 7)
 
 // will only iterate through the first 3 values
 // note that it is necessary to use a val here otherwise type inference doesn't work
 // because Scala can't decide if the type S of the fold is of type Boolean \/ Boolean
-val allTrue = all[Boolean](v => v)
+val allTrue = all[Boolean](_ > 10)
 
 allTrue.runBreak(list) == false
 ```

@@ -23,6 +23,9 @@ object depends {
   lazy val caliper = Seq("com.google.caliper" % "caliper" % "0.5-rc1",
                          "com.google.guava"   % "guava"   % "14.0.1" force())
 
+
+  lazy val scalameter = Seq("com.storm-enroute" %% "scalameter" % "0.6")
+  
   lazy val resolvers =
     sbt.Keys.resolvers ++=
       Seq(

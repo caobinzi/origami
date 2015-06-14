@@ -2,7 +2,8 @@ package com.ambiata
 package origami
 
 import scala.annotation.tailrec
-import scalaz.{EphemeralStream, Bind, ~>, Foldable, \/, \/-, -\/, Monad, Catchable}
+import scalaz.{Id, EphemeralStream, Bind, ~>, Foldable, \/, \/-, -\/, Monad, Catchable}
+import scalaz.Scalaz.Id
 import EphemeralStream._
 import scalaz.syntax.monad._
 import scalaz.syntax.foldable._
@@ -12,6 +13,7 @@ import scala.io.BufferedSource
 import FoldId.Bytes
 import FoldM._
 import effect._, SafeT._
+import FoldableM._
 
 /**
  * A structure delivering elements of type A (variable type, like a List) and which
@@ -35,73 +37,16 @@ trait FoldableM[M[_], F, A]  { self =>
   }
 }
 
-object FoldableM {
+object FoldableM extends FoldableMFunctions with FoldableMImplicits {
 
   def apply[M[_], F, A](implicit fm: FoldableM[M, F, A]): FoldableM[M, F, A] =
     implicitly[FoldableM[M, F, A]]
 
-  implicit def IteratorIsFoldableM[M[_] : Bind, A]: FoldableM[M, Iterator[A], A] = new FoldableM[M, Iterator[A], A] { outer =>
-    def foldM[B](iterator: Iterator[A])(fd: FoldM[M, A, B]): M[B] =
-      fd.start.flatMap { st =>
-        var state = st
-        while (iterator.hasNext)
-          state = fd.fold(state, iterator.next)
-        fd.end(state)
-      }
+}
 
-    def foldMBreak[B, S1](iterator: Iterator[A])(fd: FoldM[M, A, B] { type S = S1 \/ S1 }): M[B] = {
-      @tailrec
-      def foldState(it: Iterator[A], state: fd.S): fd.S = {
-        state match {
-          case \/-(_) => state
-          case -\/(_) =>
-            if (it.hasNext)
-              fd.fold(state, it.next) match {
-                case \/-(stop)     => \/-(stop)
-                case -\/(continue) => foldState(it, -\/(continue))
-              }
-          else state
-        }
-      }
+trait FoldableMFunctions {
 
-      fd.start.flatMap(st => fd.end(foldState(iterator, st)))
-    }
-  }
-
-  implicit def FoldableIsFoldableM[M[_] : Bind, F[_] : Foldable, A]: FoldableM[M, F[A], A] = new FoldableM[M, F[A], A] {
-    def foldM[B](fa: F[A])(fd: FoldM[M, A, B]): M[B] =
-      fd.start.flatMap(st => fd.end(fa.foldLeft(st)(fd.fold)))
-
-    def foldMBreak[B, S1](fa: F[A])(fd: FoldM[M, A, B] { type S = S1 \/ S1 }): M[B] = {
-      @tailrec
-      def foldState(stream: EphemeralStream[A], state: fd.S): fd.S =
-        stream match {
-          case head ##:: tail =>
-            state match {
-              case \/-(_) => state
-              case -\/(_) =>
-                fd.fold(state, head) match {
-                  case \/-(stop)     => \/-(stop)
-                  case -\/(continue) => foldState(tail, -\/(continue))
-                }
-          }
-          case _ => state
-        }
-
-      fd.start.flatMap(st => fd.end(foldState(fa.toEphemeralStream, st)))
-    }
-  }
-
-  implicit def BufferedSourceIsFoldableMS[M[_] : Monad, S <: BufferedSource]: FoldableM[M, S, String] = new FoldableM[M, S, String] {
-    def foldM[B](s: S)(fd: FoldM[M, String, B]): M[B] =
-      IteratorIsFoldableM[M, String].foldM(s.getLines)(fd)
-
-    def foldMBreak[B, S1](s: S)(fd: FoldM[M, String, B] {type S = S1 \/ S1 }): M[B] =
-      IteratorIsFoldableM[M, String].foldMBreak(s.getLines)(fd)
-  }
-
-
-  implicit def BufferedSourceIsFoldableSafeTMS[M[_] : Monad : Catchable, S <: BufferedSource]: FoldableM[SafeT[M, ?], S, String] = new FoldableM[SafeT[M, ?], S, String] {
+   def BufferedSourceIsFoldableSafeTMS[M[_] : Monad : Catchable, S <: BufferedSource]: FoldableM[SafeT[M, ?], S, String] = new FoldableM[SafeT[M, ?], S, String] {
     implicit val m = SafeTMonad[M]
 
     def foldM[B](s: S)(fd: FoldM[SafeT[M, ?], String, B]): SafeT[M, B] =
@@ -111,14 +56,7 @@ object FoldableM {
       IteratorIsFoldableM[SafeT[M, ?], String].foldMBreak(s.getLines)(fd) `finally` Monad[M].point(s.close)
   }
 
-
-  implicit def inputStreamAsFoldableM[M[_] : Monad, IS <: InputStream]: FoldableM[M, IS, Bytes] =
-    inputStreamAsFoldableMS(bufferSize = 4096)
-
-  implicit def inputStreamAsFoldableStringM[M[_] : Monad, IS <: InputStream]: FoldableM[M, IS, String] =
-    inputStreamAsFoldableStringMS(bufferSize = 4096)
-
-  def inputStreamAsFoldableMS[M[_] : Monad, IS <: InputStream](bufferSize: Int): FoldableM[M, IS, Bytes] = new FoldableM[M, IS, Bytes] {
+  def InputStreamIsFoldableMS[M[_] : Monad, IS <: InputStream](bufferSize: Int): FoldableM[M, IS, Bytes] = new FoldableM[M, IS, Bytes] {
     def foldM[B](is: IS)(fd: FoldM[M, Bytes, B]): M[B] =
       fd.start.flatMap { st =>
         val buffer = Array.ofDim[Byte](bufferSize)
@@ -151,7 +89,7 @@ object FoldableM {
       }
   }
 
-  def inputStreamAsFoldableStringMS[M[_] : Monad, IS <: InputStream](bufferSize: Int): FoldableM[M, IS, String] = new FoldableM[M, IS, String] {
+  def InputStreamIsFoldableStringMS[M[_] : Monad, IS <: InputStream](bufferSize: Int): FoldableM[M, IS, String] = new FoldableM[M, IS, String] {
     def foldM[B](is: IS)(fd: FoldM[M, String, B]): M[B] =
       fd.start.flatMap { st =>
         var state = st
@@ -187,37 +125,81 @@ object FoldableM {
       }
   }
 
-  implicit def inputStreamAsFoldableSafeTM[M[_] : Monad : Catchable, IS <: InputStream]: FoldableM[SafeT[M, ?], IS, Bytes] =
-    inputStreamAsFoldableSafeTMS(bufferSize = 4096)
-
-  implicit def inputStreamAsFoldableStringSafeTM[M[_] : Monad : Catchable, IS <: InputStream]: FoldableM[SafeT[M, ?], IS, String] =
-    inputStreamAsFoldableStringSafeTMS(bufferSize = 4096)
-
-  def inputStreamAsFoldableSafeTMS[M[_] : Monad : Catchable, IS <: InputStream](bufferSize: Int): FoldableM[SafeT[M, ?], IS, Bytes] = new FoldableM[SafeT[M, ?], IS, Bytes] {
-    implicit val m = SafeTMonad[M]
-    val foldable = inputStreamAsFoldableMS[SafeT[M, ?], IS](bufferSize)
-
-    def foldM[B](is: IS)(fd: FoldM[SafeT[M, ?], Bytes, B]): SafeT[M, B] =
-      foldable.foldM(is)(fd) `finally` Monad[M].point(is.close)
-
-    def foldMBreak[B, S1](is: IS)(fd: FoldM[SafeT[M, ?], Bytes, B] {type S = S1 \/ S1 }): SafeT[M, B] =
-      foldable.foldMBreak(is)(fd) `finally` Monad[M].point(is.close)
-  }
-
-  def inputStreamAsFoldableStringSafeTMS[M[_] : Monad : Catchable, IS <: InputStream](bufferSize: Int): FoldableM[SafeT[M, ?], IS, String] = new FoldableM[SafeT[M, ?], IS, String] {
-    implicit val m = SafeTMonad[M]
-    val foldable = inputStreamAsFoldableStringMS[SafeT[M, ?], IS](bufferSize)
-
-    def foldM[B](is: IS)(fd: FoldM[SafeT[M, ?], String, B]): SafeT[M, B] =
-      foldable.foldM(is)(fd) `finally` Monad[M].point(is.close)
-
-    def foldMBreak[B, S1](is: IS)(fd: FoldM[SafeT[M, ?], String, B] {type S = S1 \/ S1 }): SafeT[M, B] =
-      foldable.foldMBreak(is)(fd) `finally` Monad[M].point(is.close)
-  }
-
   val laws = new FoldableMLaws {}
 
 }
+
+object FoldableFunctions extends FoldableMFunctions
+
+trait FoldableMImplicits {
+
+  implicit def IteratorIsFoldableM[M[_] : Bind, A]: FoldableM[M, Iterator[A], A] = new FoldableM[M, Iterator[A], A] { outer =>
+    def foldM[B](iterator: Iterator[A])(fd: FoldM[M, A, B]): M[B] =
+      fd.start.flatMap { st =>
+        var state = st
+        while (iterator.hasNext)
+          state = fd.fold(state, iterator.next)
+        fd.end(state)
+      }
+    def foldMBreak[B, S1](iterator: Iterator[A])(fd: FoldM[M, A, B] { type S = S1 \/ S1 }): M[B] = {
+      @tailrec
+      def foldState(it: Iterator[A], state: fd.S): fd.S = {
+        state match {
+          case \/-(_) => state
+          case -\/(_) =>
+            if (it.hasNext)
+              fd.fold(state, it.next) match {
+                case \/-(stop)     => \/-(stop)
+                case -\/(continue) => foldState(it, -\/(continue))
+              }
+          else state
+        }
+      }
+      fd.start.flatMap(st => fd.end(foldState(iterator, st)))
+    }
+  }
+
+  implicit def FoldableIsFoldableM[M[_] : Bind, F[_] : Foldable, A]: FoldableM[M, F[A], A] = new FoldableM[M, F[A], A] {
+    def foldM[B](fa: F[A])(fd: FoldM[M, A, B]): M[B] =
+      fd.start.flatMap(st => fd.end(fa.foldLeft(st)(fd.fold)))
+    def foldMBreak[B, S1](fa: F[A])(fd: FoldM[M, A, B] { type S = S1 \/ S1 }): M[B] = {
+      @tailrec
+      def foldState(stream: EphemeralStream[A], state: fd.S): fd.S =
+        stream match {
+          case head ##:: tail =>
+            state match {
+              case \/-(_) => state
+              case -\/(_) =>
+                fd.fold(state, head) match {
+                  case \/-(stop)     => \/-(stop)
+                  case -\/(continue) => foldState(tail, -\/(continue))
+                }
+          }
+          case _ => state
+        }
+      fd.start.flatMap(st => fd.end(foldState(fa.toEphemeralStream, st)))
+    }
+  }
+
+  implicit def BufferedSourceIsFoldableId[S <: BufferedSource]: FoldableM[Id, S, String] =
+    BufferedSourceIsFoldableMS[Id, S]
+
+  implicit def BufferedSourceIsFoldableMS[M[_] : Monad, S <: BufferedSource]: FoldableM[M, S, String] = new FoldableM[M, S, String] {
+    def foldM[B](s: S)(fd: FoldM[M, String, B]): M[B] =
+      IteratorIsFoldableM[M, String].foldM(s.getLines)(fd)
+    def foldMBreak[B, S1](s: S)(fd: FoldM[M, String, B] {type S = S1 \/ S1 }): M[B] =
+      IteratorIsFoldableM[M, String].foldMBreak(s.getLines)(fd)
+  }
+
+  implicit def InputStreamIsFoldableM[M[_] : Monad, IS <: InputStream]: FoldableM[M, IS, Bytes] =
+    InputStreamIsFoldableMS(bufferSize = 4096)
+
+  implicit def InputStreamIsFoldableStringM[M[_] : Monad, IS <: InputStream]: FoldableM[M, IS, String] =
+    InputStreamIsFoldableStringMS(bufferSize = 4096)
+}
+
+object FoldableMImplicits extends FoldableMImplicits
+
 
 import scalaz.Id, Id._
 

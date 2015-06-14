@@ -17,7 +17,7 @@ object SafeTSpec extends Properties("SafeTSpec") {
 
   property("finalizers must be called in the call order") =
     callOrder
-    
+
   property("finalizers must be called even if one of them fails") =
     finalizersError
 
@@ -55,10 +55,10 @@ object SafeTSpec extends Properties("SafeTSpec") {
       res >> (cur.run `finally` finalizer(f, i + 1))
     }
 
-    val result = safeT.attemptRun.run
+    val (result, errors) = safeT.attemptRun.run
     val failedFinalizers = values.count(_._2.throwsException)
 
-    result.fold(l => l.errors.size, r => r._2.size) ?= failedFinalizers
+    errors.map(_.errors.size).getOrElse(0) ?= failedFinalizers
   }
 
 
