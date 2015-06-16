@@ -138,7 +138,7 @@ trait FoldM[M[_], T, U] { self =>
   }
 
   /** alias for observeWithState */
-  def <<*(sink: SinkM[M, (S, T)])(implicit ap: Apply[M]) =
+  def <<-*(sink: SinkM[M, (S, T)])(implicit ap: Apply[M]) =
     observeWithState(sink)
 
   /** observe the current state */
@@ -162,7 +162,7 @@ trait FoldM[M[_], T, U] { self =>
   }
 
   /** alias for observeWithNextState */
-  def <<<*(sink: SinkM[M, (S, T)])(implicit ap: Apply[M]) =
+  def <<+*(sink: SinkM[M, (S, T)])(implicit ap: Apply[M]) =
     observeWithNextState(sink)
 
   /** observe the next state */
@@ -174,7 +174,7 @@ trait FoldM[M[_], T, U] { self =>
   }
 
   /** alias for observeNextState */
-  def <<-*(sink: SinkM[M, S])(implicit ap: Apply[M]) =
+  def <+*(sink: SinkM[M, S])(implicit ap: Apply[M]) =
     observeNextState(sink)
 
   /**

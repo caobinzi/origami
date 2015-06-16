@@ -44,14 +44,15 @@ You can notice that the `M` monad used here is `SafeTIO` so that the output file
 
 ### Output state values
 
-There are 4 methods to observe state:
+There are 5 methods to observe the current element and or the state:
 
 Observe                           | method                 | alias
 --------------------------------- | ---------------------- | -----
+current element                   | `observe`              | `<*`
 current state                     | `observeState`         | `<-*`
-current state and current element | `observeWithState`     | `<<*`
-next state                        | `observeNextState`     | `<<-*`
-next state and current element    | `observeWithNextState` | `<<<*`
+current state and current element | `observeWithState`     | `<<-*`
+next state                        | `observeNextState`     | `<+*`
+next state and current element    | `observeWithNextState` | `<<+*`
 
 Let's see the `observeWithState` method in action:
 ```scala
