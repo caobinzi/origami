@@ -1,6 +1,6 @@
 import sbt._
 import Keys._
-import depends.scalazVersion
+import depends.{scalazVersion, akkaStreamVersion}
 import com.typesafe.sbt._
 import com.ambiata.promulgate.project.ProjectPlugin._
 import cappi.Plugin._
@@ -13,8 +13,8 @@ object build extends Build {
     id = "origami",
     base = file("."),
     settings = standardSettings ++ promulgate.library("com.ambiata.origami", "ambiata-oss"),
-    aggregate = Seq(core, stream)).
-    dependsOn(core, stream)
+    aggregate = Seq(core, stream, akka)).
+    dependsOn(core, stream, akka)
 
   lazy val standardSettings = Defaults.coreDefaultSettings ++
                               projectSettings              ++
@@ -22,7 +22,7 @@ object build extends Build {
                               testingSettings              ++
                               depends.resolvers
 
-    /** MODULES (sorted in alphabetical order) */
+  /** MODULES (sorted in alphabetical order) */
   lazy val core = Project(
     id = "core",
     base = file("core"),
@@ -39,11 +39,20 @@ object build extends Build {
           name := "origami-stream")
   ).dependsOn(core, core % "test->test")
 
+  lazy val akka = Project(
+    id = "akka",
+    base = file("akka"),
+    settings = standardSettings ++ lib("akka") ++
+      Seq(libraryDependencies ++= depends.akka(akkaStreamVersion.value) ++ depends.scalacheck ++ depends.caliper ++ depends.scalameter,
+          name := "origami-akka")
+  ).dependsOn(core, core % "test->test")
+
   lazy val projectSettings: Seq[Settings] = Seq(
     organization := "com.ambiata",
     version in ThisBuild := "1.0",
     scalaVersion := "2.11.6",
     scalazVersion := "7.1.1",
+    akkaStreamVersion := "1.0-RC3",
     crossScalaVersions := Seq(scalaVersion.value, "2.10.5"),
     publishArtifact in (Test, packageBin) := true)
 

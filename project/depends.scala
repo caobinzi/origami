@@ -3,7 +3,12 @@ import Keys._
 
 object depends {
 
-  lazy val scalazVersion = settingKey[String]("defines the current scalaz version")
+  lazy val scalazVersion     = settingKey[String]("defines the current scalaz version")
+  lazy val akkaStreamVersion = settingKey[String]("defines the current akka stream version")
+
+  lazy val versions =
+    Seq(scalazVersion,
+        akkaStreamVersion)
 
   def scalaz(scalazVersion: String) =
     Seq("org.scalaz" %% "scalaz-core" % scalazVersion,
@@ -13,6 +18,9 @@ object depends {
   def stream(scalazVersion: String) =
     if (scalazVersion.startsWith("7.1")) Seq("org.scalaz.stream" %% "scalaz-stream" % "0.7a")
     else                                 Seq("org.scalaz.stream" %% "scalaz-stream" % "0.7")
+
+  def akka(akkaStreamVersion: String) = 
+    Seq(  "com.typesafe.akka" %% "akka-stream-experimental" % akkaStreamVersion)
 
   lazy val scalacheck =
     Seq("org.scalacheck" %% "scalacheck" % "1.12.2" % "test")
