@@ -2,12 +2,9 @@ package com.ambiata
 package origami
 package stream
 
-import FoldM._
-import FoldId._
+import Origami._
 import FoldProcessM._
-import effect.FoldTask._
-import effect.FoldSafeT._
-import effect.SafeT._
+import effect.FoldTask
 import stream.FoldableProcessM._
 import scodec.bits.ByteVector
 import scalaz.effect.IO
@@ -37,7 +34,7 @@ class FoldProcessMSpec extends Properties("Process Task folds") {
 
       var writtenLines = 0
 
-      val sink: Sink[(Int, String)] =
+      val sink: FoldTask.Sink[(Int, String)] =
         FoldProcessM.fromSink(scalaz.stream.io.fileChunkW(testFile.getPath)).contramap[(Int, String)] { case (i, s) =>
           val line = s"sum=$i,string=$s"
           writtenLines += 1
@@ -45,7 +42,7 @@ class FoldProcessMSpec extends Properties("Process Task folds") {
         }
 
       val totalAndOutput: FoldM[SafeTTask, Line, Int] =
-        (sum.into[SafeTTask] <<* sink).contramap[Line](_.value)
+        (sum.into[SafeTTask] <<-* sink).contramap[Line](_.value)
 
       (IO(totalAndOutput.run(listProcess).run.run) |@| IO(Source.fromFile(testFile)(io.Codec("UTF-8")).getLines)) { (total, lines) =>
         val readLines: List[String] = lines.toList
