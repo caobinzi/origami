@@ -4,4 +4,6 @@ resolvers += Resolver.url("ambiata-oss", new URL("https://ambiata-oss.s3.amazona
 
 resolvers += Resolver.url("bintray-sbt-plugin-releases", url("http://dl.bintray.com/content/sbt/sbt-plugin-releases"))(Resolver.ivyStylePatterns)
 
+resolvers += "Era7 maven releases" at "https://s3-eu-west-1.amazonaws.com/releases.era7.com"
+
 addSbtPlugin("me.lessis" % "cappi" % "0.1.1")
