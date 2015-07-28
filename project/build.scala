@@ -69,17 +69,19 @@ object build extends Build {
   )
 
   lazy val testingSettings: Seq[Settings] = Seq(
+    testFrameworks := Seq(TestFrameworks.ScalaCheck, scalaMeterFramework),
+    perfTestsScope := "_",  // no tests by default
+    testOptions in Test += Tests.Argument(scalaMeterFramework, "-CscopeFilter '"+perfTestsScope.value+"'"),
     logBuffered := false,
     cancelable := true,
     javaOptions ++= Seq("-Xmx3G", "-Xss4M"),
     fork in test := true
-  ) ++ cappiSettings ++
-  Seq(
-    testFrameworks += new TestFramework("org.scalameter.ScalaMeterFramework"),
-    logBuffered := false)
+  ) ++ cappiSettings
 
-  logBuffered := false
+  lazy val perfTestsScope = SettingKey[String]("perfTestsScope", "regular expression to use as a scope filter for ScalaMeter")
 
+  lazy val scalaMeterFramework =
+    TestFramework("org.scalameter.ScalaMeterFramework")
 
   def lib(name: String) =
     promulgate.library(s"com.ambiata.origami.$name", "ambiata-oss")
