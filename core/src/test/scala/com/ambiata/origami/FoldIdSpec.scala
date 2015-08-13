@@ -39,6 +39,7 @@ object FoldIdSpec extends Properties("FoldId") {
   property("plusBy") = plusByFold
   property("times") = timesFold
   property("timesBy") = timesByFold
+  property("numeric fold") = numericFold
 
   property("maximum") = maximumFold
   property("maximumBy") = maximumByFold
@@ -154,6 +155,13 @@ object FoldIdSpec extends Properties("FoldId") {
 
   def timesByFold = forAll { list: List[String] =>
     timesBy((_: String).size).run(list) ?= list.foldLeft(0)(_ * _.size)
+  }
+
+  def numericFold = forAll { (i: Int, ls: List[Int]) =>
+    val list = i :: ls
+    import FoldMImplicits._
+    //((plus[Int].seal / count[Int].seal).run(list): Int) == (list.sum / list.size)
+    (FoldIntegral[Int, Int].quot(plus[Int].seal, count[Int].seal).run(list): Int) == (list.sum / list.size)
   }
 
   def timesFold = forAll { list: List[Int] =>

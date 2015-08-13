@@ -287,6 +287,9 @@ trait FoldM[M[_], T, U] { self =>
   /** equivalent of the void method for functors, added here for easier type inference */
   def void(implicit m: Functor[M]) =
     as(())
+
+  /** hide the state type parameter */
+  def seal: FoldM[M, T, U] = this
 }
 
 /**
@@ -359,6 +362,14 @@ trait FoldMFunctions {
     def start = action
     def fold = (s: S, t: T) => s
     def end(s: S) = Monad[M].point(s)
+  }
+
+  /** @return a fold with just a last action */
+  def fromEnd[M[_]: Monad, T, U](action: M[U]) = new FoldM[M, T, U] {
+    type S = Unit
+    def start = Monad[M].point(())
+    def fold = (s: S, t: T) => s
+    def end(s: S) = action
   }
 
 }
@@ -495,6 +506,60 @@ trait FoldMImplicits {
 
     def map[A, B](fa: F[A])(f: A => B): Fold[T, B] =
       fa map f
+  }
+
+  /**
+   * Ordering trait for Fold
+   */
+  trait FoldOrdering[T, U] extends math.Ordering[Fold[T, U]] {
+    type F = Fold[T, U]
+    def ord: math.Ordering[U]
+
+    def last(x: F): U = FoldableM.FoldableIsFoldableM[Id, List, T].foldM(Nil)(x)
+    // this doesn't make much sense
+    def compare(x: F, y: F): Int = ord.compare(last(x), last(y))
+  }
+
+  /**
+   * Numeric instance for Fold
+   */
+  implicit def FoldNumeric[T, U : Numeric]: Numeric[Fold[T, U]] = new Numeric[Fold[T, U]] with FoldOrdering[T, U] {
+    def num = implicitly[Numeric[U]]
+    def ord = implicitly[math.Ordering[U]]
+
+    def plus(x: F, y: F): F = (x <*> y).map((num.plus _).tupled)
+    def minus(x: F, y: F): F = (x <*> y).map((num.minus _).tupled)
+    def times(x: F, y: F): F = (x <*> y).map((num.times _).tupled)
+    def negate(x: F): F = x.map(num.negate)
+
+    // this doesn't make much sense
+    def fromInt(x: Int): F = fromEnd(num.fromInt(x): Id[U])
+    def toInt(x: F): Int = num.toInt(last(x))
+    def toLong(x: F): Long = num.toLong(last(x))
+    def toFloat(x: F): Float = num.toFloat(last(x))
+    def toDouble(x: F): Double = num.toDouble(last(x))
+  }
+
+  /**
+   * Integral instance for Fold
+   */
+  implicit def FoldIntegral[T, U : Integral]: Integral[Fold[T, U]] = new Integral[Fold[T, U]] with FoldOrdering[T, U] {
+    def int = implicitly[Integral[U]]
+    def ord = implicitly[math.Ordering[U]]
+
+    def plus(x: F, y: F): F = (x <*> y).map((int.plus _).tupled)
+    def minus(x: F, y: F): F = (x <*> y).map((int.minus _).tupled)
+    def times(x: F, y: F): F = (x <*> y).map((int.times _).tupled)
+    def negate(x: F): F = x.map(int.negate)
+    def quot(x: F, y: F): F = (x <*> y).map((int.quot _).tupled)
+    def rem(x: F, y: F): F = (x <*> y).map((int.rem _).tupled)
+
+    // this doesn't make much sense
+    def fromInt(x: Int): F = fromEnd(int.fromInt(x): Id[U])
+    def toInt(x: F): Int = int.toInt(last(x))
+    def toLong(x: F): Long = int.toLong(last(x))
+    def toFloat(x: F): Float = int.toFloat(last(x))
+    def toDouble(x: F): Double = int.toDouble(last(x))
   }
 
   /** Natural transformation from Id to a monad M */
